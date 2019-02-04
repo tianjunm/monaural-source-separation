@@ -1,32 +1,40 @@
-import sys
 import argparse
 from pydub import AudioSegment
 
 
 DATA_DIRECTORY = "./raw_clips"
 
-# needs 
+V_N = 1
+MV_N = 2
+MV_MN = 3
+
+
+# needs
 def get_arguments():
     parser = argparse.ArgumentParser(description='Data generator for audio \
         separation')
-    # parser.add_argument('--num_classes', type=int, default=BATCH_SIZE,
-    #                     help='How many wav files to process at once. Default: ' + str(BATCH_SIZE) + '.')
-    # parser.add_argument('--comb_out_path')
+    parser.add_argument('--s_level', type=int, default=1, required=True)
+    parser.add_argument('--v_file', nargs='+', required=True)
+    parser.add_argument('--n_file', nargs='+', required=True)
+    parser.add_argument('--id', type=int, required=True)
+    parser.add_argument('--out_dir', type=str)
 
-    # parser.add_argument('--')
+    return parser.parse_args()
 
-def loader():
-    return
+
+def overlay_clips(args):
+    if (args.s_level == V_N):
+        v1 = AudioSegment.from_file(args.v_file[0])
+        n1 = AudioSegment.from_file(args.n_file[0])
+
+    combined = v1.overlay(n1)
+    combined.export("{}/{}.wavk".format(args.out_dir, args.id), format='wav')
 
 
 def main():
-    # get_arguments()
-    sound1 = AudioSegment.from_file("raw_clips/bird/0.wav")
-    sound2 = AudioSegment.from_file("raw_clips/gun/0.wav")
+    args = get_arguments()
+    overlay_clips(args)
 
-    combined = sound1.overlay(sound2)
-
-    combined.export("./combined.wav", format='wav')
 
 if __name__ == "__main__":
     main()
