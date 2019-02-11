@@ -71,7 +71,7 @@ outputs:
 
 ```bash
 cd ~/multimodal_listener/data
-python mix.py [-n num_class] [-t length] [-o out_path]
+python mix.py [-n num_class] [-t duration] [-o out_path]
 ```
 
 generates a random mixture of `num_class` sources, with each source occuring once in the mixture. the sources are drawn from a uniform distribution across all classes.
