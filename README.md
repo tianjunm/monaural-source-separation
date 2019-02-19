@@ -100,7 +100,15 @@ python mix.py -n 3 -t 10 -o out/
 
 #### pre-processing
 
-stft for spectrogram
+stft for spectrogram (ask Irene)
+
+input: one spectrogram (time-frequency)
+
+* t - (?, 50]
+
+output: multiple spectrograms
+
+
 
 
 
@@ -108,7 +116,14 @@ stft for spectrogram
 
 TBD
 
+model
+
+* dimensions - hyperparameters
+* picking min (set-to-set mapping, not positional)
 
 
 
+doing randomized search (fix categories, controlled)
 
+* detect shift 
+* not at generalizing stage yet
