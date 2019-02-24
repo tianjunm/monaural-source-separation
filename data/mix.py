@@ -11,6 +11,25 @@ NUM_CLASSES = 100
 CLASS_MAX_SIZE = 100
 
 
+def is_empty(path):
+    return ([f for f in os.listdir(path)
+             if not (f.startswith('.') or ('csv' in f))] == [])
+
+
+# FIXME: rn only search for non-empty folders
+def select_classes(all_sources, num_sources):
+    selected = []
+    while (len(selected) < num_sources):
+        try:
+            i = random.randint(0, len(all_sources))
+            path = DATA_DIRECTORY + all_sources[i]
+            if (i not in selected) and (not is_empty(path)):
+                selected.append(i)
+        except Exception as e:
+            print (e)
+    return selected
+
+
 def select(n, num_samples):
     if (num_samples > n):
         raise Exception("n is smaller than number of samples to select!")
@@ -21,10 +40,10 @@ def select(n, num_samples):
 def get_classes(path, num_sources):
     all_sources = [name for name in os.listdir(path)]
     # selected_classes = select(len(all_sources), num_sources)
-    selected_classes = [0, 20, 35]
-    for c in selected_classes:
-        print (all_sources[c])
+    selected_classes = select_classes(all_sources, num_sources)
     print (selected_classes)
+    for c in selected_classes:
+        print(all_sources[c])
     return (all_sources, selected_classes)
 
 
@@ -34,7 +53,7 @@ def get_arguments():
         separation')
     parser.add_argument('--num_class', type=int, default=3, required=True)
     parser.add_argument('--duration', type=int, required=True)
-    parser.add_argument('--out_path', type=str)
+    parser.add_argument('--out_path', type=str, default='./test')
 
     return parser.parse_args()
 
@@ -47,13 +66,13 @@ def overlay_clips(clips):
         else:
             aggregate = aggregate.overlay(clips[i])
 
+    aggregate = aggregate.set_channels(1)
     return aggregate
 
 
-def mix(all_classes, selected_classes, duration):
-    # background = AudioSegment.silent(duration=duration)
-    num_sources = len(selected_classes)
-
+def get_intervals(num_sources, duration):
+    """Get the intervals where each wav appear in the combination
+    """
     # randomize the starting times for each source
     starts = select(duration, num_sources)
     starts.sort()
@@ -65,24 +84,63 @@ def mix(all_classes, selected_classes, duration):
         end = min(start + upperbounds[i], duration)
         intervals.append((start, end))
 
-    wav_paths = []
+    return intervals
+
+
+def get_wav_files(all_classes, selected_classes):
+    wav_files = []
     for class_id in selected_classes:
         class_name = all_classes[class_id]
-        for i in range(CLASS_MAX_SIZE):
+        # randomly choose one from the given category
+        while True:
             try:
+                i = random.randint(0, CLASS_MAX_SIZE - 1)
                 wav_path = DATA_DIRECTORY + class_name + "/{}.wav".format(i)
+                wav_file = AudioSegment.from_wav(wav_path)
+                print (wav_path)
                 break
-            except(Exception):
+            except(Exception) as e:
+                print (e)
                 continue
 
-        wav_paths.append(wav_path)
+        wav_files.append(wav_file)
 
-    print (upperbounds)
-    print (intervals)
+    return wav_file
 
+
+def mix(all_classes, selected_classes, duration):
+    """Combing multiple tracks into one
+
+    Mixes sound files from different sources and returns the mixture and
+    ground truths.
+
+    Args:
+        all_classes: a list of names of available classes of sound sources
+        selected_classes: a subset of all_classes represented by indices,
+                          randomly chosen
+        duration: length of the final output
+    Returns:
+        intervals: list of starting and end times for each source
+        ground_truths: list of individual clips of each source
+        aggregate: the combined clip
+    """
+
+    # background = AudioSegment.silent(duration=duration)
+    num_sources = len(selected_classes)
+
+    intervals = get_intervals(num_sources, duration)
+    wav_files = get_wav_files(all_classes, selected_classes)
+    ground_truths = get_ground_truths(wav_files, intervals, duration)
+    aggregate = overlay_clips(ground_truths)
+
+    return (intervals, ground_truths, aggregate)
+
+
+def get_ground_truths(wav_files, intervals, duration):
     ground_truths = []
+
     for i, interval in enumerate(intervals):
-        w = AudioSegment.from_wav(wav_paths[i])
+        w = wav_files[i]
         start, end = interval
         pad_before = AudioSegment.silent(start * 1000)
         pad_after = AudioSegment.silent((duration - end) * 1000)
@@ -90,10 +148,11 @@ def mix(all_classes, selected_classes, duration):
         w = w[:dur * 1000]
 
         ground_truth = pad_before + w + pad_after
+        # set to mono
+        ground_truth = ground_truth.set_channels(1)
         ground_truths.append(ground_truth)
 
-    aggregate = overlay_clips(ground_truths)
-    return (intervals, ground_truths, aggregate)
+    return ground_truths
 
 
 def create_dir(outdir):
@@ -107,6 +166,7 @@ def create_dir(outdir):
 
 def export(all_sources, selected_classes, info, out_path):
     intervals, ground_truths, aggregate = info
+    print (selected_classes)
     out_name = "".join([str(i) for i in selected_classes])
 
     # metadata

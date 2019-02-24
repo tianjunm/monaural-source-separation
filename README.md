@@ -4,7 +4,11 @@
 
 # multimodal-listener
 
-##dataset
+## roadmap
+
+
+
+## dataset
 
 Audio samples are mainly gathered from Google AI's AudioSet.
 
@@ -12,9 +16,9 @@ Toy dataset is consist of 5 categories. There are 100 categories in total in the
 
 
 
-### raw data
+## raw data
 
-####toy dataset
+### toy dataset
 
 |        ambient (noise)         |           active (voice)            |
 | :----------------------------: | :---------------------------------: |
@@ -24,15 +28,17 @@ Toy dataset is consist of 5 categories. There are 100 categories in total in the
 
 
 
-####complete dataset
+### complete dataset
 
-#####human
+#### sources
+
+##### active (human)
 
 * openslr (variety) http://www.openslr.org/resources.php
 * common voice (12 GB) https://voice.mozilla.org/en/datasets
 * voxforge (small, fragmented) http://www.voxforge.org/home/listen
 
-##### environment
+##### ambient
 
 * environmental sounds http://www.cs.tut.fi/~heittolt/datasets
 * AudioSet
@@ -40,19 +46,19 @@ Toy dataset is consist of 5 categories. There are 100 categories in total in the
 
 
 
-###processed data
+### processed data
 
-#### combination
+#### combinations
 
-holding the ground truths, we generate a rich collection of compositions that contains multiple sound sources.
+holding the ground truths, we generate a rich collection of compositions that contains multiple sound sources. 
 
 
 
-##usage
+## methodology
 
 ### data acquisition
 
-####download
+#### download
 
 ```bash
 cd ~/audioset/download/
@@ -100,13 +106,30 @@ python mix.py -n 3 -t 10 -o out/
 
 #### pre-processing
 
-stft for spectrogram (ask Irene)
+create visual representation (spectrograms) for audio waves
 
-input: one spectrogram (time-frequency)
 
-* t - (?, 50]
 
-output: multiple spectrograms
+
+
+### model design
+
+#### problems to tackle
+
+* generate individual tracks
+  * ...
+* great clarity
+* ...
+
+#### baseline models
+
+##### goals
+
+the main goal of experimenting with baseline models is to explore 
+
+
+
+#### performance models
 
 
 
@@ -127,3 +150,12 @@ doing randomized search (fix categories, controlled)
 
 * detect shift 
 * not at generalizing stage yet
+
+
+
+
+
+questions
+
+* how did LSTM learn sequential patterns?
+* 
