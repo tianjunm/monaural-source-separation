@@ -77,16 +77,17 @@ outputs:
 
 ```bash
 cd ~/multimodal_listener/data
-python mix.py [-n num_class] [-t duration] [-o out_path]
+python mix.py --num_class [num_class] --duration [duration] --out_path [out path] [--selected_classes [pre-selected categories]]
 ```
 
 generates a random mixture of `num_class` sources, with each source occuring once in the mixture. the sources are drawn from a uniform distribution across all classes.
 
 arguments:
 
-* `-n` : number of categories to mix. it should be between 2 and 100
-* `-t` : duration of the generated mixture in seconds
-* `-o` : path that stores the outputs
+* `--num_class` : number of categories to mix. it should be between 2 and 100
+* `--duration` : duration of the generated mixture in seconds
+* `--out_path` : path that stores the outputs
+* `--selected_classes` : optional. list of pre-selected classes
 
 outputs:
 
@@ -120,6 +121,11 @@ create visual representation (spectrograms) for audio waves
   * ...
 * great clarity
 * ...
+* quetions
+  * why CNN? it's useful for capturing features, not spatial relationships
+  * take the min during loss calculation - all output converge to one ground truth?
+  * autoencoders?
+  * 
 
 #### baseline models
 
