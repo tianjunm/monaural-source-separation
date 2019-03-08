@@ -77,14 +77,14 @@ outputs:
 
 ```bash
 cd ~/multimodal_listener/data
-python mix.py --num_class [num_class] --duration [duration] --out_path [out path] [--selected_classes [pre-selected categories]]
+python mix.py --num_sources [num_sources] --duration [duration] --out_path [out path] [--selected_classes [pre-selected categories]]
 ```
 
 generates a random mixture of `num_class` sources, with each source occuring once in the mixture. the sources are drawn from a uniform distribution across all classes.
 
 arguments:
 
-* `--num_class` : number of categories to mix. it should be between 2 and 100
+* `--num_sources` : number of categories to mix. it should be between 2 and 100
 * `--duration` : duration of the generated mixture in seconds
 * `--out_path` : path that stores the outputs
 * `--selected_classes` : optional. list of pre-selected classes
