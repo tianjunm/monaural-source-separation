@@ -1,5 +1,5 @@
 """Mixer for dataset generation"""
-import logging
+# import logging
 import argparse
 import random
 import os
@@ -29,7 +29,12 @@ def select(upperbound, num_samples):
     return random.sample(range(upperbound), num_samples)
 
 
-# needs
+def get_pathname(class_name, wav_id):
+    """get pathname for file"""
+    pathname = DATA_DIRECTORY + class_name + "/{}.wav".format(wav_id)
+    return pathname
+
+
 def get_arguments():
     """get arguments"""
     parser = argparse.ArgumentParser(description='Data generator for audio \
@@ -44,19 +49,6 @@ def get_arguments():
     parser.add_argument('--out_path', type=str, default='./test')
 
     return parser.parse_args()
-
-
-def overlay_clips(clips):
-    """"""
-    aggregate = None
-    for i in range(len(clips)):
-        if i == 0:
-            aggregate = clips[i]
-        else:
-            aggregate = aggregate.overlay(clips[i])
-
-    aggregate = aggregate.set_channels(1)
-    return aggregate
 
 
 class Mixer():
@@ -126,7 +118,7 @@ class Mixer():
 
     # TODO: allow resetting different fields
     def reset(self, criteria):
-        pass
+        """reset the values for given field and randomize"""
 
     def export_results(self, out_path, all_classes):
         """export all related results"""
@@ -177,7 +169,6 @@ class Mixer():
             ground_truth.export(ground_truth_path, format="wav")
         print("saved!")
 
-    # TODO: implement me!
     def _save_config(self, out_name, out_path):
         """
         Space-separated argument list corresponding to:
@@ -198,8 +189,8 @@ class Mixer():
         # content += (" ".join(self.intervals) + " ")
         content += (out_path + "\n")
 
-        with open(config_path, 'w') as f:
-            f.write(content)
+        with open(config_path, 'w') as file_path:
+            file_path.write(content)
 
         print("saved!")
 
@@ -233,10 +224,6 @@ class Mixer():
 
         self.intervals = intervals
 
-    def _get_pathname(self, class_name, wav_id):
-        pathname = DATA_DIRECTORY + class_name + "/{}.wav".format(wav_id)
-        return pathname
-
     # FIXME: function has confusing structure
     def _get_wav_files(self, all_classes):
         # if specific sound clip IDs are not given
@@ -247,13 +234,10 @@ class Mixer():
                 while True:
                     try:
                         i = random.randint(0, CLASS_MAX_SIZE - 1)
-                        wav_path = self._get_pathname(class_name, i)
+                        wav_path = get_pathname(class_name, i)
                         wav_file = AudioSegment.from_wav(wav_path)
                         break  # found clip, go to next category
-                    # except OSError as err:
-                    #     logging.exception(err)
-                    #     continue
-                    except():
+                    except OSError:
                         pass
                 self.wav_ids.append(i)
                 self.wav_files.append(wav_file)
@@ -263,7 +247,7 @@ class Mixer():
             for i, class_id in enumerate(self.selected_classes):
                 class_name = all_classes[int(class_id)]
                 wav_id = self.wav_ids[i]
-                wav_path = self._get_pathname(class_name, wav_id)
+                wav_path = get_pathname(class_name, wav_id)
                 print(wav_path)
                 wav_file = AudioSegment.from_wav(wav_path)
                 self.wav_files.append(wav_file)
@@ -289,11 +273,11 @@ class Mixer():
 
     def _overlay_clips(self):
         aggregate = None
-        for i in range(len(self.ground_truths)):
+        for i, clip in enumerate(self.ground_truths):
             if i == 0:
-                aggregate = self.ground_truths[i]
+                aggregate = clip
             else:
-                aggregate = aggregate.overlay(self.ground_truths[i])
+                aggregate = aggregate.overlay(clip)
 
         aggregate = aggregate.set_channels(1)
 
@@ -301,6 +285,7 @@ class Mixer():
 
 
 def create_dir(outdir):
+    """creates directory if it does not exist"""
     if not os.path.exists(os.path.dirname(outdir)):
         try:
             os.makedirs(os.path.dirname(outdir))
@@ -322,10 +307,9 @@ def main():
     all_classes = get_classes(DATA_DIRECTORY)
 
     mixer = Mixer(args)
-
     mixer.mix(all_classes)
     mixer.export_results(args.out_path, all_classes)
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     main()
