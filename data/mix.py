@@ -8,11 +8,20 @@ import csv
 from pydub import AudioSegment
 
 
+SILENT = True 
 DATA_DIRECTORY = "./raw/"
 NUM_CLASSES = 100
 # FIXME: current dataset is a mini version
 CLASS_MAX_SIZE = 17
 SEC_LEN = 1000
+
+
+def log(msg, newline=False):
+    if not SILENT:
+        if newline:
+            print(msg, end='')
+        else:
+            print(msg)
 
 
 def is_empty(path):
@@ -39,13 +48,14 @@ def get_arguments():
     """get arguments"""
     parser = argparse.ArgumentParser(description='Data generator for audio \
         separation')
+    parser.add_argument('--id', type=int)
     parser.add_argument('--num_sources', type=int, default=3, required=True)
     parser.add_argument('--duration', type=int, required=True)
 
     # optional arguments
     parser.add_argument('--selected_classes', nargs='*')
     parser.add_argument('--wav_ids', nargs='*')
-    parser.add_argument('--intervals', nargs='*')
+    parser.add_argument('--source_durations', type=int, nargs='*')
     parser.add_argument('--out_path', type=str, default='./test')
 
     return parser.parse_args()
@@ -66,6 +76,8 @@ class Mixer():
             types of sound sources to be combined
         wav_ids:
             ids of .wav files within each class in selected_classes
+        source_durations:
+            durations for each independent source
         intervals:
             times for each sound clip to appear in the mixture
         wav_files:
@@ -81,7 +93,7 @@ class Mixer():
         self.mixture_duration = args.duration
         self.selected_classes = args.selected_classes
         self.wav_ids = args.wav_ids
-        self.intervals = args.intervals
+        self.source_durations = args.source_durations
         self.wav_files = []
         self.ground_truths = None
         self.aggregate = None
@@ -107,26 +119,33 @@ class Mixer():
         if not self.selected_classes:
             self._select_classes(all_classes)
 
-        if not self.intervals:
-            self._generate_intervals()
+        # self.intervals
+        self._generate_intervals()
 
-        # automatically handles empty self.wav_paths
+        # self.wav_files
         self._get_wav_files(all_classes)
 
+        # self.ground_truths
         self._create_ground_truths()
+
+        # self.agregate
         self._overlay_clips()
 
     # TODO: allow resetting different fields
     def reset(self, criteria):
         """reset the values for given field and randomize"""
 
-    def export_results(self, out_path, all_classes):
-        """export all related results"""
-        # print(self.selected_classes)
+    def export_results(self, out_path, all_classes, iter_id):
+        '''export all related results
+        Args:
+            iter_id: ith iteration
+        '''
+        # sample: 1-2-3
         out_name = "-".join([str(i) for i in self.selected_classes])
+        suffix = str(iter_id)
         self._save_metadata(out_name, out_path, all_classes)
-        self._save_media(out_name, out_path)
-        self._save_config(out_name, out_path)
+        self._save_media(out_name, out_path, suffix)
+        # self._save_config(out_name, out_path)
 
     # PRIVATE METHODS
 
@@ -134,7 +153,7 @@ class Mixer():
         meta_path = out_path + "/" + "{}.csv".format(out_name)
         create_dir(meta_path)
 
-        print("Saving metadata...", end="")
+        log("Saving metadata...", newline=True)
         with open(meta_path, 'w+') as meta:
             meta_fields = ["start time", "end time", "class_name"]
             writer = csv.DictWriter(meta, fieldnames=meta_fields)
@@ -143,31 +162,33 @@ class Mixer():
                 start, end = interval
                 class_id = int(self.selected_classes[i])
                 writer.writerow({
-                    "start time": start,
-                    "end time": end,
+                    "start time": start / SEC_LEN,
+                    "end time": end / SEC_LEN,
                     "class_name": all_classes[class_id]
                 })
-        print("saved!")
+        log("saved!")
 
-    def _save_media(self, out_name, out_path):
+    def _save_media(self, out_name, out_path, suffix):
         # combined clip
-        clip_path = out_path + "/" + "{}.wav".format(out_name)
+        clip_path = out_path + "/" + "{}_{}.wav".format(out_name, suffix)
         create_dir(clip_path)
 
-        print("Saving combined clip...", end="")
+        log("Saving combined clip...", newline=True)
         self.aggregate.export(clip_path, format="wav")
-        print("saved!")
+        log("saved!")
 
         # ground truths
-        print("Saving ground truths...", end="")
+        log("Saving ground truths...", newline=True)
         for i in range(len(self.ground_truths)):
             ground_truth = self.ground_truths[i]
             filename = self.selected_classes[i]
-            ground_truth_path = out_path + "/{}/".format(out_name)\
-                + "{}.wav".format(filename)
+            # ground_truth_path = out_path + "/{}/".format(out_name)\
+            #     + "{}.wav".format(filename)
+            ground_truth_path = '{}/{}_{}.wav'.format(out_path, filename,
+                                                      suffix)
             create_dir(ground_truth_path)
             ground_truth.export(ground_truth_path, format="wav")
-        print("saved!")
+        log("saved!")
 
     def _save_config(self, out_name, out_path):
         """
@@ -175,7 +196,7 @@ class Mixer():
         --num_sources, --duration, --selected_classes, --wav_ids,
         --intervals, --out_path
         """
-        print("Saving configs...", end="")
+        log("Saving configs...", newline=True)
         config_path = out_path + "/" + "{}.txt".format(out_name)
         create_dir(config_path)
         content = ""
@@ -192,7 +213,7 @@ class Mixer():
         with open(config_path, 'w') as file_path:
             file_path.write(content)
 
-        print("saved!")
+        log("saved!")
 
     # FIXME: currently only search for non-empty folders
     def _select_classes(self, all_classes):
@@ -206,20 +227,27 @@ class Mixer():
 
     def _generate_intervals(self):
         """Get the intervals where each wav appear in the combination
-
-        Randomly creates intervals for n sound source.
-
+        First get the duration of each source, then randomize the interval
+        where each source appear in the mixture.
         """
 
-        # randomize the starting times for each source
-        starts = select(self.mixture_duration, self.num_sources)
-        starts.sort()
+        n_frames = self.mixture_duration * SEC_LEN
+        durations = self.source_durations
 
-        upperbounds = [random.randint(1, 10) for i in range(self.num_sources)]
+        if durations is None:
+            # randomize durations for each source
+            dur_lo = SEC_LEN  # one sec
+            dur_hi = n_frames
+            length = self.num_sources
+            durations = [random.randint(dur_lo, dur_hi) for i in range(length)]
 
         intervals = []
-        for i, start in enumerate(starts):
-            end = min(start + upperbounds[i], self.mixture_duration)
+        for duration_in_sec in durations:
+            duration = duration_in_sec * SEC_LEN
+            start_lo = 0
+            start_hi = n_frames - duration
+            start = random.randint(start_lo, start_hi)
+            end = start + duration
             intervals.append((start, end))
 
         self.intervals = intervals
@@ -248,21 +276,21 @@ class Mixer():
                 class_name = all_classes[int(class_id)]
                 wav_id = self.wav_ids[i]
                 wav_path = get_pathname(class_name, wav_id)
-                print(wav_path)
+                log(wav_path)
                 wav_file = AudioSegment.from_wav(wav_path)
                 self.wav_files.append(wav_file)
 
     def _create_ground_truths(self):
+        n_frames = self.mixture_duration * SEC_LEN
         ground_truths = []
 
         for i, interval in enumerate(self.intervals):
             wav = self.wav_files[i]
             start, end = interval
-            pad_before = AudioSegment.silent(start * SEC_LEN)
-            pad_after = AudioSegment.silent((self.mixture_duration -
-                                             end) * SEC_LEN)
+            pad_before = AudioSegment.silent(start)
+            pad_after = AudioSegment.silent(n_frames - end)
             dur = end - start
-            wav = wav[:dur * SEC_LEN]
+            wav = wav[:dur]
 
             ground_truth = pad_before + wav + pad_after
             # set to mono
@@ -308,7 +336,7 @@ def main():
 
     mixer = Mixer(args)
     mixer.mix(all_classes)
-    mixer.export_results(args.out_path, all_classes)
+    mixer.export_results(args.out_path, all_classes, args.id)
 
 
 if __name__ == "__main__":
