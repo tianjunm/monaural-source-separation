@@ -33,12 +33,12 @@ class SignalDataset(Dataset):
         for filename in os.listdir(data_path):
             if filename.endswith('.npy'):
                 agg = torch.from_numpy(np.load(data_path + filename))
-                item['aggregate'] = agg 
+                item['aggregate'] = torch.t(agg) 
             else:
                 gt_path = data_path + 'gt/'
                 for gt_name in os.listdir(gt_path):
                     gt = torch.from_numpy(np.load(gt_path + gt_name))
-                    item['ground_truths'].append(gt)
+                    item['ground_truths'].append(torch.t(gt))
 
         return item
 

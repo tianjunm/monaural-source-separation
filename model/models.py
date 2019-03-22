@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-# import torch.nn.functional as F
+import torch.nn.functional as F
 # import numpy as np
 from tensorboardX import SummaryWriter
 
@@ -8,31 +8,43 @@ from tensorboardX import SummaryWriter
 NUM_LAYERS = 1
 BATCH_SIZE = 32
 
-# FIXME: examples rn!!
-INPUT_DIM = 3
+# INPUT_DIM = 3
 NUM_SOURCES = 2
-SEQ_LEN = 10
+SEQ_LEN = 173 
 
 
-# def loss_fn(outputs, labels):
-#     """Closest distance loss function
+def reshape(x, seq_len, bs):
+    x = [x[:, ts, :] for ts in range(seq_len)]
+    x = torch.cat(x).view(seq_len, bs, -1)
+    return x
 
-#     Calulates the distance from output to each of the ground truths, and
-#     the loss is the min of all distances
 
-#     Args:
-#         outputs: (w*h) * n * batch_size, model outputs
-#         labels: (w*h) * n, ground truths
-#     """
-#     batch_size, length, n = outputs.size()  # length = w * h
-#     loss = 0
+def calc_dists(preds, gts, device):
+    """
+    Args:
+        preds: n_sources * [seq_len, bs, input_dim]
+        gts: n_sources * [seq_len, bs, input_dim]
+    
+    Returns:
+        dists: [bs, n_sources]
+    """
+    n_sources = len(preds)
+    assert n_sources == len(gts)
 
-#     # ground_truths = labels.repeat(batch_size, 1, 1)
-#     for i in range(n):
-#         predicted = outputs[:, i].unsqueeze(1)
-#         dists = (predicted - labels).norm(dim=2)
-#         loss += dists.min()
-#     return loss
+    bs = preds[0].size()[1]
+    # TODO: greedy assignment
+    dists = torch.zeros(bs, n_sources).to(device)
+
+    for src_id in range(n_sources):
+        pred = preds[src_id]
+        gt = gts[src_id]
+#         print(pred.size())
+#         print(gt.size())
+        for batch in range(bs):
+            dist = torch.norm(torch.squeeze(pred[:, batch, :] - gt[:, batch, :], dim=1), 2)
+            dists[batch, src_id] = dist
+        
+    return dists
 
 
 class MinLoss(nn.Module):
@@ -41,20 +53,30 @@ class MinLoss(nn.Module):
     Compare the distance from output with its closest ground truth.
 
     """
-    # def __init__(self):
-    #     # nn.Module.__init__(self)
-    #     super(MinLoss, self).__init__()
+    def __init__(self, device):
+        # nn.Module.__init__(self)
+        super(MinLoss, self).__init__()
+        self.device = device
 
     def forward(self, predictions, ground_truths):
         """
         Args:
-            prediction: num_sources * seq_len * slice_size
-            ground_truths: num_sourecs * seq_len * slice_size
+            prediction: num_sources * [seq_len, bs, input_dim]
+            ground_truths: num_sources * [bs, seq_len, input_dim] 
+        Returns:
+            loss: [bs,]
         """
-        # get distance measure (num_sources * num_sources)
-        # match each p
-        # calculate distances
-        # loss = sum(distances)
+        seq_len = predictions[0].size()[0]
+        bs = predictions[0].size()[1]
+        # reshape gts into seq_len, bs, input_dim
+        gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
+
+        # get distance measure (bs * num_sources)
+        dists = calc_dists(predictions, gts, self.device)
+        
+        loss = torch.sum(dists)
+        
+        return loss
 
 
 class Baseline(nn.Module):
@@ -66,27 +88,36 @@ class Baseline(nn.Module):
                      also the hidden dimension for the LSTM network
     """
 
-    def __init__(self, input_dim, batch_size, num_sources, num_layers=1):
+    def __init__(
+            self,
+            input_dim,
+            # batch_size,
+            seq_len=SEQ_LEN,
+            num_sources=NUM_SOURCES):
         super(Baseline, self).__init__()
+        self.input_dim = input_dim
         self.num_sources = num_sources
-        self.batch_size = batch_size
+        # self.bs = batch_size
+        self.seq_len = seq_len
         self.num_layers = NUM_LAYERS
-        self.lstm = nn.LSTM(input_dim, num_sources)
-        # self.hidden = self.init_hidden()
-        # self.num_directions = 1
-        # self.mapping = nn.Linear(
+        self.lstm = nn.LSTM(input_dim, num_sources * input_dim)
+        # self.encoder = nn.Linear()
 
-    # TODO: input dimension! what should the non-linearity be?
+
     def forward(self, x):
-        x = x.view(SEQ_LEN, 1, -1)
-        lstm_out, _ = self.lstm(x.hidden)
-        # predicted = F.log_softmax(lstm_out)
-        return lstm_out
+        bs = x.size()[0]
+        # x is agg
+        x = reshape(x, self.seq_len, bs)
+        x, _ = self.lstm(x)  # [seq_len, batch_size, num_sources]
+        # x = self.decoder(x)  # [seq_len, batch_size, num_sources * input_dim]
+        x = F.relu(x)
+        prediction = torch.split(x, self.input_dim, dim=-1)
+        return prediction 
 
 
-dummy = torch.randn(INPUT_DIM, SEQ_LEN)
-with SummaryWriter(comment='BaseLSTM') as w:
-    w.add_graph(Baseline(INPUT_DIM, BATCH_SIZE, NUM_SOURCES), dummy, True)
+# dummy = torch.randn(INPUT_DIM, SEQ_LEN)
+# with SummaryWriter(comment='BaseLSTM') as w:
+#     w.add_graph(Baseline(INPUT_DIM, BATCH_SIZE, NUM_SOURCES), dummy, True)
 
 
 # # TODO: exploit other structures
