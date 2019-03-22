@@ -143,7 +143,7 @@ class Mixer():
         # sample: 1-2-3
         out_name = "-".join([str(i) for i in self.selected_classes])
         suffix = str(iter_id)
-        self._save_metadata(out_name, out_path, all_classes)
+        # self._save_metadata(out_name, out_path, all_classes)
         self._save_media(out_name, out_path, suffix)
         # self._save_config(out_name, out_path)
 
