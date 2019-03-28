@@ -75,17 +75,19 @@ def main():
             
             prediction = model(aggregate)
             loss = criterion(prediction, ground_truths)
+            print(loss)
             loss.backward()
             optimizer.step()
 
             # log statistics
             running_loss += loss
+            epoch_loss += loss
 
             # log every 200 mini-batches
             if (i > 0 and (i + 1) % 200 == 0):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 200))
-                epoch_loss += running_loss
+                # epoch_loss += running_loss
                 running_loss = 0
 
         # log loss in graph
@@ -96,6 +98,7 @@ def main():
                                legend: avg_loss,
                            },
                            epoch)
+        epoch_loss = 0
     
     print("Finished training!")
     writer.close()
