@@ -32,15 +32,33 @@ class SignalDataset(Dataset):
 
         for filename in os.listdir(data_path):
             if filename.endswith('.npy'):
-                agg = torch.from_numpy(np.load(data_path + filename))
-                item['aggregate'] = torch.t(agg) 
+                # agg_complex = torch.from_numpy(np.load(data_path + filename))
+                # agg = self._from_complex(data_path + filename) 
+                agg = self._from_complex(data_path + filename)
+                item['aggregate'] = agg 
             else:
                 gt_path = data_path + 'gt/'
+                # print(gt_path)
                 for gt_name in os.listdir(gt_path):
-                    gt = torch.from_numpy(np.load(gt_path + gt_name))
-                    item['ground_truths'].append(torch.t(gt))
+                    # gt = torch.from_numpy(np.load(gt_path + gt_name))
+                    gt = self._from_complex(gt_path + gt_name)
+                    item['ground_truths'].append(gt)
 
         return item
+
+    # FIXME: hacky, should use Transform
+    def _from_complex(self, filepath):
+        m = np.load(filepath)
+        num_channels, nrows, ncols = m.shape
+
+        result = np.zeros((nrows * num_channels, ncols))
+
+        for i in range(num_channels):
+            start = i * nrows;
+            end = (i + 1) * nrows;
+            result[start:end, :] = m[i]
+
+        return torch.t(torch.from_numpy(result)).float()
 
     # def get_spectrograms(self):
         

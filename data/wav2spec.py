@@ -4,10 +4,12 @@
 import argparse
 # import json
 import os
-import librosa
+# import librosa
 import numpy as np
-from tqdm import tqdm
-from scipy import signal
+# from tqdm import tqdm
+import scipy.io.wavfile
+import scipy.signal
+
 
 FORWARD = 'wav2spec'
 BACKWARD = 'spec2wav'
@@ -73,23 +75,42 @@ def griffinlim(spectrogram, n_iter=100, window='hann', n_fft=2048,
 def reconstruct(spect):
     reconstructed_data = griffinlim(spect)
     # TODO: reconsrucr wirh sr
+    # spect_comp = spect_sep[0, :, :] + 1j* spect_sep[1, :, :]
+
+    # _, rdata = scipy.signal.istft(spect_comp, fs=sr, nfft = 256)
     return reconstructed_data
 
 
-def get_spectrogram(data, sample_rate, compress_factor=1):
-    n_frames = len(data)
+# def get_spectrogram(data, sample_rate, compress_factor=1):
+#     n_frames = len(data)
 
-    # apply compression during conversion
-    out_frames = n_frames // compress_factor
-    sample_rate_compressed = sample_rate // compress_factor
-    # n_fft_compressed = N_FFT // compress_nfft 
+#     # apply compression during conversion
+#     out_frames = n_frames // compress_factor
+#     sample_rate_compressed = sample_rate // compress_factor
+#     # n_fft_compressed = N_FFT // compress_nfft 
 
-    # compress x-axis 
-    data_compressed = signal.resample(data, out_frames)
+#     # compress x-axis 
+#     data_compressed = signal.resample(data, out_frames)
 
-    # TODO: figure out how to compress y-axis
-    spect = np.abs(librosa.stft(data_compressed))**2
-    return (spect, sample_rate_compressed)
+#     # TODO: figure out how to compress y-axis
+#     spect = np.abs(librosa.stft(data_compressed))**2
+#     return (spect, sample_rate_compressed)
+
+
+def get_spectrogram(filename):
+    sr, data = scipy.io.wavfile.read(filename)
+
+    _, _, spect_raw = scipy.signal.stft(data, fs=sr, boundary='zeros',
+            padded=True, nfft=256)
+
+    nrows, ncols = spect_raw.shape
+
+    # 2 channels
+    spect_sep = np.zeros((2, nrows, ncols))
+    spect_sep[0, :, :] = spect_raw.real
+    spect_sep[1, :, :] = spect_raw.imag
+    
+    return spect_sep
 
 
 def main():
@@ -97,10 +118,10 @@ def main():
 
     # wav to spectrogram
     if args.direction == FORWARD:
-        data, sr_in = librosa.load(args.filename)
-        spect, sr = get_spectrogram(data, sr_in,
-                compress_factor=args.compress_factor)
-
+        # data, sr_in = librosa.load(args.filename)
+        # spect, sr = get_spectrogram(data, sr_in,
+        #         compress_factor=args.compress_factor)
+        spect = get_spectrogram(args.filename)
         # save
         filename = args.filename.split('/')[-1].split('.wav')[0]
         data_id, seqno = filename.split('_')[0], filename.split('_')[1]
