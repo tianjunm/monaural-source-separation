@@ -29,13 +29,15 @@ class SignalDataset(Dataset):
         data_path= self.root_dir + str(idx + 1) + '/' # aggregates
 
         item = {'aggregate': None, 'ground_truths': []}
-
+        # print(data_path)
+        # print(len(os.listdir(data_path)))
         for filename in os.listdir(data_path):
+            # print('staty')
             if filename.endswith('.npy'):
                 # agg_complex = torch.from_numpy(np.load(data_path + filename))
                 # agg = self._from_complex(data_path + filename) 
                 agg = self._from_complex(data_path + filename)
-                item['aggregate'] = agg 
+                item['aggregate'] = agg
             else:
                 gt_path = data_path + 'gt/'
                 # print(gt_path)
@@ -44,6 +46,7 @@ class SignalDataset(Dataset):
                     gt = self._from_complex(gt_path + gt_name)
                     item['ground_truths'].append(gt)
 
+            # print(data_path)
         return item
 
     # FIXME: hacky, should use Transform
@@ -57,6 +60,9 @@ class SignalDataset(Dataset):
             start = i * nrows;
             end = (i + 1) * nrows;
             result[start:end, :] = m[i]
+
+        result[:nrows, :] = m[0]
+        result[nrows:, :] = m[1]
 
         return torch.t(torch.from_numpy(result)).float()
 

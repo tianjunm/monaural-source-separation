@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import numpy as np
+import numpy as np
 from tensorboardX import SummaryWriter
+import scipy.spatial.distance as ssdist
 
 
 NUM_LAYERS = 1
@@ -12,11 +13,54 @@ BATCH_SIZE = 32
 NUM_SOURCES = 2
 SEQ_LEN = 173 
 
+# helpers for calc_dists
+def get_orders(dists):
+    '''
+    Args:
+        dists: [bs, n_sources n_sources]
+    '''
+    num_batches = dists.shape[0]
+    d = dists.shape[1]
+    orders = np.zeros(dists.shape)
+    for batch in range(num_batches):
+        flattened = np.copy(dists[batch, :, :].reshape(1, -1))
+        indices = np.argsort(flattened)
+        flattened[:, indices] = np.arange(flattened.size)
+        # print(flattened.reshape(d, -1))
+        # print(flattened.reshape(d, -1).astype(int))
+        orders[batch, :, :] = flattened.reshape(d, -1)
+    
+    return orders.astype(int)
+
+
+def get_matches(orders):
+    num_batches = orders.shape[0]
+    d = orders.shape[1]
+    mask = np.max(orders) + 1
+    
+    matched_pairs = np.zeros((num_batches, d))
+    for i in range(d):
+        for batch in range(num_batches):
+            m = np.argmin(orders[batch, :, :])
+            indices = np.array([(m // d), (m % d)])
+
+            matched_pairs[batch][indices[0]] = indices[1]
+
+            # mask row & col
+            orders[batch, indices[0], :] = np.ones(d) * mask
+            orders[batch, :, indices[1]] = np.ones(d) * mask
+    
+    return matched_pairs    
+
 
 def reshape(x, seq_len, bs):
     x = [x[:, ts, :] for ts in range(seq_len)]
     x = torch.cat(x).view(seq_len, bs, -1)
     return x
+
+
+def flatten(ms, batch):
+    return np.array([m[:, batch, :].detach().numpy().flatten() for m in ms])
 
 
 def calc_dists(preds, gts, device):
@@ -32,18 +76,28 @@ def calc_dists(preds, gts, device):
     assert n_sources == len(gts)
 
     bs = preds[0].size()[1]
-    # TODO: greedy assignment
-    dists = torch.zeros(bs, n_sources).to(device)
 
-    for src_id in range(n_sources):
-        pred = preds[src_id]
-        gt = gts[src_id]
-#         print(pred.size())
-#         print(gt.size())
-        for batch in range(bs):
-            dist = torch.norm(torch.squeeze(pred[:, batch, :] - gt[:, batch, :], dim=1), 2)
+    # getting the distances from each prediction to all gts
+    all_dists = np.zeros((bs, n_sources, n_sources))
+    
+    for batch in range(bs):
+        pred_flattened = flatten(preds, batch)
+        gt_flattened = flatten(gts, batch)
+        all_dists[batch] = ssdist.cdist(pred_flattened, gt_flattened)
+    
+    all_orders = get_orders(all_dists)
+    all_matches = get_matches(all_orders)
+    dists = torch.zeros(bs, n_sources).to(device)
+    
+    for batch in range(bs):
+        matches = all_matches[batch]
+        for src_id in range(n_sources):
+            pred = preds[src_id]
+            gt_match = gts[int(matches[src_id])]
+            # recomputing required to keep track of grads
+            dist = torch.norm(torch.squeeze(pred[:, batch, :] - gt_match[:, batch, :], dim=1), 2)
             dists[batch, src_id] = dist
-        
+
     return dists
 
 

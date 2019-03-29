@@ -1,7 +1,7 @@
 #!/bin/bash
 
 COUNTER=1
-DATASET="/home/tianjunm/Documents/Projects/dataset"
+DATASET="/Users/tianjunma/Projects/dataset"
 WAVS_PATH="$DATASET/dataset_a1"
 OUT_PATH="$DATASET/a1_spectrograms"
 PERCENTAGE=0.0

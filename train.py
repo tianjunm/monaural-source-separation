@@ -43,8 +43,8 @@ def main():
     # cuda
     device = get_device(args.gpu_id)
     # create network
-    model = models.Baseline(1025, 
-            seq_len=173,
+    model = models.Baseline(258, 
+            seq_len=691,
             num_sources=2).to(device)
 
     # customized loss function
@@ -52,7 +52,7 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
     
     print('Preparing data...', end='')
-    dataset = dt.SignalDataset(root_dir='data/a1_spectrograms/')
+    dataset = dt.SignalDataset(root_dir='/Users/tianjunma/Projects/dataset/a1_spectrograms/')
     dataloader = torch.utils.data.DataLoader(
             dataset, 
             batch_size=args.batch_size,
