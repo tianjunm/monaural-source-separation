@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+# import numpy as np
 from tensorboardX import SummaryWriter
-import scipy.spatial.distance as ssdist
 
 
 NUM_LAYERS = 1
@@ -13,57 +12,19 @@ BATCH_SIZE = 32
 NUM_SOURCES = 2
 SEQ_LEN = 173 
 
-# helpers for calc_dists
-def get_orders(dists):
-    '''
-    Args:
-        dists: [bs, n_sources n_sources]
-    '''
-    num_batches = dists.shape[0]
-    d = dists.shape[1]
-    orders = np.zeros(dists.shape)
-    for batch in range(num_batches):
-        flattened = np.copy(dists[batch, :, :].reshape(1, -1))
-        indices = np.argsort(flattened)
-        flattened[:, indices] = np.arange(flattened.size)
-        # print(flattened.reshape(d, -1))
-        # print(flattened.reshape(d, -1).astype(int))
-        orders[batch, :, :] = flattened.reshape(d, -1)
-    
-    return orders.astype(int)
-
-
-def get_matches(orders):
-    num_batches = orders.shape[0]
-    d = orders.shape[1]
-    mask = np.max(orders) + 1
-    
-    matched_pairs = np.zeros((num_batches, d))
-    for i in range(d):
-        for batch in range(num_batches):
-            m = np.argmin(orders[batch, :, :])
-            indices = np.array([(m // d), (m % d)])
-
-            matched_pairs[batch][indices[0]] = indices[1]
-
-            # mask row & col
-            orders[batch, indices[0], :] = np.ones(d) * mask
-            orders[batch, :, indices[1]] = np.ones(d) * mask
-    
-    return matched_pairs    
-
 
 def reshape(x, seq_len, bs):
+    """turn input into torch tensor with dimension seq_lem * bs * input_dim"""
     x = [x[:, ts, :] for ts in range(seq_len)]
     x = torch.cat(x).view(seq_len, bs, -1)
     return x
 
 
 def flatten(ms, batch):
-    return np.array([m[:, batch, :].detach().numpy().flatten() for m in ms])
+    return np.array([m[:, batch, :].cpu().detach().numpy().flatten() for m in ms])
 
 
-def calc_dists(preds, gts, device):
+def calc_dists(preds, gts, device, metric):
     """
     Args:
         preds: n_sources * [seq_len, bs, input_dim]
@@ -79,25 +40,40 @@ def calc_dists(preds, gts, device):
 
     # getting the distances from each prediction to all gts
     all_dists = np.zeros((bs, n_sources, n_sources))
-    
+   
+   #  print(metric)
     for batch in range(bs):
         pred_flattened = flatten(preds, batch)
         gt_flattened = flatten(gts, batch)
-        all_dists[batch] = ssdist.cdist(pred_flattened, gt_flattened)
+        all_dists[batch] = ssdist.cdist(pred_flattened, gt_flattened, metric=metric)
     
     all_orders = get_orders(all_dists)
+    # print(all_orders)
     all_matches = get_matches(all_orders)
     dists = torch.zeros(bs, n_sources).to(device)
-    
+  
+    # print(all_dists)
+    # print(all_matches)
+
     for batch in range(bs):
         matches = all_matches[batch]
+        # print(matches)
         for src_id in range(n_sources):
             pred = preds[src_id]
             gt_match = gts[int(matches[src_id])]
-            # recomputing required to keep track of grads
+            # recomputing norms (required to keep track of grads)
             dist = torch.norm(torch.squeeze(pred[:, batch, :] - gt_match[:, batch, :], dim=1), 2)
             dists[batch, src_id] = dist
 
+    for src_id in range(n_sources):
+        pred = preds[src_id]
+        gt = gts[src_id]
+#         print(pred.size())
+#         print(gt.size())
+        for batch in range(bs):
+            dist = torch.norm(torch.squeeze(pred[:, batch, :] - gt[:, batch, :], dim=1), 2)
+            dists[batch, src_id] = dist
+        
     return dists
 
 
@@ -107,10 +83,11 @@ class MinLoss(nn.Module):
     Compare the distance from output with its closest ground truth.
 
     """
-    def __init__(self, device):
+    def __init__(self, device, metric='euclidean'):
         # nn.Module.__init__(self)
         super(MinLoss, self).__init__()
         self.device = device
+        self.metric = metric
 
     def forward(self, predictions, ground_truths):
         """
@@ -126,7 +103,7 @@ class MinLoss(nn.Module):
         gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
 
         # get distance measure (bs * num_sources)
-        dists = calc_dists(predictions, gts, self.device)
+        dists = calc_dists(predictions, gts, self.device, self.metric)
         
         loss = torch.sum(dists)
         
@@ -145,48 +122,42 @@ class Baseline(nn.Module):
     def __init__(
             self,
             input_dim,
-            # batch_size,
             seq_len=SEQ_LEN,
+            num_layers=NUM_LAYERS,
             num_sources=NUM_SOURCES):
         super(Baseline, self).__init__()
         self.input_dim = input_dim
+        self.num_layers = num_layers 
         self.num_sources = num_sources
-        # self.bs = batch_size
         self.seq_len = seq_len
-        self.num_layers = NUM_LAYERS
         self.lstm = nn.LSTM(input_dim, num_sources * input_dim)
-        # self.encoder = nn.Linear()
 
 
     def forward(self, x):
         bs = x.size()[0]
         # x is agg
         x = reshape(x, self.seq_len, bs)
-        x, _ = self.lstm(x)  # [seq_len, batch_size, num_sources]
-        # x = self.decoder(x)  # [seq_len, batch_size, num_sources * input_dim]
+        x, _ = self.lstm(x)  # [seq_len, batch_size, num_sources * input_dim]
         x = F.relu(x)
         prediction = torch.split(x, self.input_dim, dim=-1)
         return prediction 
 
 
-# dummy = torch.randn(INPUT_DIM, SEQ_LEN)
-# with SummaryWriter(comment='BaseLSTM') as w:
-#     w.add_graph(Baseline(INPUT_DIM, BATCH_SIZE, NUM_SOURCES), dummy, True)
-
-
-# # TODO: exploit other structures
-# class Net2(nn.Module):
-#     """Conv + LSTM
-#     """
-
-#     def __init__(self):
-#         super(Net2, self).__init__()
-#         self.conv = None
-#         self.lstm = None
-
-#     def forward(self, x):
-#         batch_size, nrows, ncols = x.size()
-#         x = x.view(-1, nrows * ncols)
-#         x = F.relu(self.conv(x))
-#         x = F.relu(self.lstm(x))
-#         return x
+class A1(nn.Module):
+    """lstm, fc; relu"""
+    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
+        super(A1, self).__init__()
+        self.input_dim = input_dim
+        self.num_layers = num_layers 
+        self.num_sources = num_sources
+        self.seq_len = seq_len
+        self.lstm = nn.LSTM(input_dim, 100) 
+        self.fc = nn.Linear(100, num_sources * input_dim, bias=True)
+        
+    def forward(self, x):
+        bs = x.size()[0]
+        x = reshape(x, self.seq_len, bs)
+        out, _ = self.lstm(x)
+        ys = self.fc(F.relu(out))
+        prediction = torch.split(ys, self.input_dim, dim=-1)
+        return prediction 

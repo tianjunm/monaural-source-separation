@@ -1,10 +1,10 @@
 #!/bin/bash
 
 COUNTER=1
-DATASET="/Users/tianjunma/Projects/dataset"
-WAVS_PATH="$DATASET/dataset_a1"
-OUT_PATH="$DATASET/a1_spectrograms"
-PERCENTAGE=0.0
+DATASET="/home/tianjunm/Documents/Projects/dataset"
+WAVS_PATH="$DATASET/dataset_b2_test"
+OUT_PATH="$DATASET/b2_spectrograms_test"
+percentage=0.0
 
 echo 'Start generating spectrograms for wav files'
 for f in ${WAVS_PATH}/*.wav; do
@@ -19,5 +19,6 @@ for f in ${WAVS_PATH}/*.wav; do
     # if [[ "$COUNTER" -gt 10 ]]; then
     #     break
     # fi
+    # break
 done
 echo ''
