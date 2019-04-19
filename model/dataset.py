@@ -9,12 +9,12 @@ from torch.utils.data import Dataset
 
 
 class SignalDataset(Dataset):
-    """Custom Dataset for source separation"""
+    """custom dataset for source separation"""
 
     def __init__(self, root_dir, sample_rate=22050, transform=None):
         """
-        Args:
-            transform: Optional
+        args:
+            transform: optional
         """
         self.transform = transform
         self.root_dir = root_dir
@@ -24,34 +24,53 @@ class SignalDataset(Dataset):
         return len(os.listdir(self.root_dir)) - 1
 
     def __getitem__(self, idx):
-        # FIXME: hacky - root_dir may not have '/'
+        # fixme: hacky - root_dir may not have '/'
 
         data_path= self.root_dir + str(idx + 1) + '/' # aggregates
 
         item = {'aggregate': None, 'ground_truths': []}
-        # print(data_path)
-        # print(len(os.listdir(data_path)))
         for filename in os.listdir(data_path):
             # print('staty')
             if filename.endswith('.npy'):
                 # agg_complex = torch.from_numpy(np.load(data_path + filename))
                 # agg = self._from_complex(data_path + filename) 
-                agg = self._from_complex(data_path + filename)
+                agg = np.load(data_path + filename)
                 item['aggregate'] = agg
             else:
                 gt_path = data_path + 'gt/'
                 # print(gt_path)
                 for gt_name in os.listdir(gt_path):
                     # gt = torch.from_numpy(np.load(gt_path + gt_name))
-                    gt = self._from_complex(gt_path + gt_name)
+                    gt = np.load(gt_path + gt_name)
+                    # gt = self._from_complex(gt_path + gt_name)
+                    # print(gt)
                     item['ground_truths'].append(gt)
-
-            # print(data_path)
+        
+        if self.transform:
+            item = self.transform(item)
         return item
 
-    # FIXME: hacky, should use Transform
-    def _from_complex(self, filepath):
-        m = np.load(filepath)
+
+class Concat(object):
+    """2-channel spectrogram to single-channel tensor
+    """
+    
+    def __call__(self, item):
+        transformed = {'aggregate': None, 'ground_truths': None}
+        agg = self._from_complex(item['aggregate'])
+        transformed['aggregate'] = agg  
+
+        seq_len, input_dim = agg.size()
+        n_sources = len(item['ground_truths'])
+
+        gts = torch.zeros((seq_len, n_sources, input_dim))
+        for s, gt in enumerate(item['ground_truths']):
+            gts[:, s, :] = self._from_complex(gt)
+        
+        transformed['ground_truths'] = torch.FloatTensor(gts)
+        return transformed 
+
+    def _from_complex(self, m):
         num_channels, nrows, ncols = m.shape
 
         result = np.zeros((nrows * num_channels, ncols))
@@ -65,19 +84,3 @@ class SignalDataset(Dataset):
         result[nrows:, :] = m[1]
 
         return torch.t(torch.from_numpy(result)).float()
-
-    # def get_spectrograms(self):
-        
-    #     # get the size
-    #     aggregates = [None] * len(all_files)
-    #     ground_truths = [[]] * len(all_files)
-
-    #     for filename in all_files:
-    #         idx = int(filename.split('_')[-1].split('.npy')[0]) - 1
-    #         if '-' in filename:  # spectrogram of aggregate
-    #             aggregates[idx] = np.load(filename)
-    #         else:
-    #             ground_truths[idx].append(np.load(filename))
-
-    #     assert len(aggregates) == len(ground_truths)
-    #     return aggregates, ground_truths 

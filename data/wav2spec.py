@@ -42,34 +42,59 @@ def create_dir(outdir):
                 raise
 
 
-# def griffinlim(spectrogram, n_iter=100, window='hann', n_fft=2048,
-#                hop_length=-1, verbose=False):
-#     '''audio reconstruction
+def griffinlim(spectrogram, n_iter=100, window='hann', n_fft=2048,
+               hop_length=-1, verbose=False):
+    '''audio reconstruction
 
-#     Reference: https://github.com/librosa/librosa/issues/434 by Jongwook
-#     '''
+    Reference: https://github.com/librosa/librosa/issues/434 by Jongwook
+    '''
 
-#     if hop_length == -1:
-#         hop_length = n_fft // 4
+    if hop_length == -1:
+        hop_length = n_fft // 4
 
-#     angles = np.exp(2j * np.pi * np.random.rand(*spectrogram.shape))
+    angles = np.exp(2j * np.pi * np.random.rand(*spectrogram.shape))
 
-#     t = tqdm(range(n_iter), ncols=100, mininterval=2.0, disable=not verbose)
-#     for i in t:
-#         full = np.abs(spectrogram).astype(np.complex) * angles
-#         inverse = librosa.istft(full, hop_length=hop_length, window=window)
-#         rebuilt = librosa.stft(inverse, n_fft=n_fft,
-#                                hop_length=hop_length, window=window)
-#         angles = np.exp(1j * np.angle(rebuilt))
+    t = tqdm(range(n_iter), ncols=100, mininterval=2.0, disable=not verbose)
+    for i in t:
+        full = np.abs(spectrogram).astype(np.complex) * angles
+        inverse = librosa.istft(full, hop_length=hop_length, window=window)
+        rebuilt = librosa.stft(inverse, n_fft=n_fft,
+                               hop_length=hop_length, window=window)
+        angles = np.exp(1j * np.angle(rebuilt))
 
-#         if verbose:
-#             diff = np.abs(spectrogram) - np.abs(rebuilt)
-#             t.set_postfix(loss=np.linalg.norm(diff, 'fro'))
+        if verbose:
+            diff = np.abs(spectrogram) - np.abs(rebuilt)
+            t.set_postfix(loss=np.linalg.norm(diff, 'fro'))
 
-#     full = np.abs(spectrogram).astype(np.complex) * angles
-#     inverse = librosa.istft(full, hop_length=hop_length, window=window)
+    full = np.abs(spectrogram).astype(np.complex) * angles
+    inverse = librosa.istft(full, hop_length=hop_length, window=window)
 
-#     return inverse
+    return inverse
+
+
+def reconstruct(spect):
+    reconstructed_data = griffinlim(spect)
+    # TODO: reconsrucr wirh sr
+    # spect_comp = spect_sep[0, :, :] + 1j* spect_sep[1, :, :]
+
+    # _, rdata = scipy.signal.istft(spect_comp, fs=sr, nfft = 256)
+    return reconstructed_data
+
+
+# def get_spectrogram(data, sample_rate, compress_factor=1):
+#     n_frames = len(data)
+
+#     # apply compression during conversion
+#     out_frames = n_frames // compress_factor
+#     sample_rate_compressed = sample_rate // compress_factor
+#     # n_fft_compressed = N_FFT // compress_nfft 
+
+#     # compress x-axis 
+#     data_compressed = signal.resample(data, out_frames)
+
+#     # TODO: figure out how to compress y-axis
+#     spect = np.abs(librosa.stft(data_compressed))**2
+#     return (spect, sample_rate_compressed)
 
 
 def get_spectrogram(filename):
@@ -104,9 +129,9 @@ def main():
         output_name_prefix = args.output_dir + '/' + seqno + '/'
         if '-' in data_id:  # aggregate
             output_name = output_name_prefix + data_id
-        else:  # ground truth
+        else:  # ground truth 
             output_name = output_name_prefix + 'gt/' + data_id
-        # annotation_path = args.output_dir + '/sample_rate'
+        # annotation_path = args.output_dir + '/sample_rate' 
         # info = {'spectrogram': spect.tolist(), 'sample_rate': sr}
         # with open('{}.json'.format(filepath), 'w') as fjson:
         #     json.dump(info, fjson)

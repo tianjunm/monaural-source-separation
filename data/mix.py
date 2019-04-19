@@ -55,7 +55,7 @@ def get_arguments():
     # optional arguments
     parser.add_argument('--selected_classes', nargs='*')
     parser.add_argument('--wav_ids', nargs='*')
-    parser.add_argument('--source_durations', type=float, nargs='*')
+    parser.add_argument('--source_durations', type=int, nargs='*')
     parser.add_argument('--out_path', type=str, default='./test')
 
     return parser.parse_args()
@@ -123,11 +123,7 @@ class Mixer():
         self._generate_intervals()
 
         # self.wav_files
-        # self._get_wav_files(all_classes)
-        # FIXME: temporary, change later
-        honk = AudioSegment.from_wav('honk.wav')
-        bird = AudioSegment.from_wav('bird.wav')
-        self.wav_files = [honk, bird]
+        self._get_wav_files(all_classes)
 
         # self.ground_truths
         self._create_ground_truths()
@@ -178,7 +174,6 @@ class Mixer():
         create_dir(clip_path)
 
         log("Saving combined clip...", newline=True)
-        log(clip_path)
         self.aggregate.export(clip_path, format="wav")
         log("saved!")
 
@@ -191,7 +186,6 @@ class Mixer():
             #     + "{}.wav".format(filename)
             ground_truth_path = '{}/{}_{}.wav'.format(out_path, filename,
                                                       suffix)
-            log(ground_truth_path)
             create_dir(ground_truth_path)
             ground_truth.export(ground_truth_path, format="wav")
         log("saved!")
@@ -295,14 +289,14 @@ class Mixer():
             start, end = interval
             pad_before = AudioSegment.silent(start)
             pad_after = AudioSegment.silent(n_frames - end)
-            dur = int(end - start)
+            dur = end - start
             wav = wav[:dur]
 
             ground_truth = pad_before + wav + pad_after
             # set to mono
             ground_truth = ground_truth.set_channels(1)
             ground_truths.append(ground_truth)
-        
+
         self.ground_truths = ground_truths
 
     def _overlay_clips(self):
@@ -338,8 +332,7 @@ def main():
     """main"""
     args = get_arguments()
 
-    # all_classes = get_classes(DATA_DIRECTORY)
-    all_classes = []
+    all_classes = get_classes(DATA_DIRECTORY)
 
     mixer = Mixer(args)
     mixer.mix(all_classes)

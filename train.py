@@ -14,6 +14,7 @@ CRITERION = 'minloss'
 OUTPUT_DIR = './logs'
 NUM_EPOCHS = 10000
 MODEL_TYPE = 'base'
+METRIC = 'euclidean'
 
 
 def get_argument():
@@ -22,6 +23,7 @@ def get_argument():
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE)
     parser.add_argument('--criterion', type=str, default=CRITERION)
     parser.add_argument('--model', type=str, default=MODEL_TYPE)
+    parser.add_argument('--metric', type=str, default=METRIC)
     parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--job_id', type=int, default=0)
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
@@ -48,11 +50,6 @@ def main():
     # cuda
     device = get_device(args.gpu_id)
     # create network
-<<<<<<< Updated upstream
-    model = models.Baseline(1025, 
-            seq_len=173,
-            num_sources=2).to(device)
-=======
     if args.model == 'base':
         model = models.Baseline(258, 
                 seq_len=691,
@@ -63,14 +60,13 @@ def main():
                 # seq_len=691,
                 seq_len=691,
                 num_sources=2).to(device)
->>>>>>> Stashed changes
 
     # customized loss function
     if args.criterion == CRITERION:
-        criterion = models.MinLoss(device)
+        criterion = models.MinLoss(device, args.metric)
     else: 
         # TODO: currently unavailable due to dimension mismatch
-        criterion = nn.MSELoss()
+        criterion = model.MSELoss(device, args.metric)
 
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     
@@ -104,12 +100,11 @@ def main():
         for i, info in enumerate(dataloader):
             # print('batch {}'.format(i))
             aggregate = info['aggregate'].to(device)
-            ground_truths = [gt.to(device) for gt in info['ground_truths']]
+            ground_truths = info['ground_truths'].to(device)
             optimizer.zero_grad()
             
             prediction = model(aggregate)
             loss = criterion(prediction, ground_truths)
-            # print(loss)
             loss.backward()
             optimizer.step()
 
@@ -132,7 +127,7 @@ def main():
         #         test_loss = criterion(prediction, ground_truths)
                 
         if epoch % 49 == 0:
-            model_path = model_path_prefix + 'model_checkpoint_{}.pth'.format(epoch + 1)
+            model_path = model_path_prefix + '_checkpoint.pth'
             torch.save(model.state_dict(), model_path)
 
         # log loss in graph
@@ -146,7 +141,7 @@ def main():
 
         print('epoch %d, train loss: %.3f' % (epoch + 1, avg_loss))
 
-        writer.add_scalars('data/{}_loss_{}'.format(args.model, args.job_id),
+        writer.add_scalars('data/{}_loss_{}_{}'.format(args.model, args.metric, args.job_id),
                            {
                                legend_train: avg_loss,
                                # legend_test: avg_test_loss,
