@@ -2,49 +2,37 @@
 import os
 import numpy as np
 import torch
-# from scipy.io import wavfile
-# import matplotlib.pyplot as plt
-# from pydub.playback import play
 from torch.utils.data import Dataset
 
 
 class SignalDataset(Dataset):
     """custom dataset for source separation"""
 
-    def __init__(self, root_dir, sample_rate=22050, transform=None):
+    def __init__(self, root_dir, transform=None):
         """
         args:
             transform: optional
         """
         self.transform = transform
         self.root_dir = root_dir
-        self.sr = sample_rate
 
     def __len__(self):
-        return len(os.listdir(self.root_dir)) - 1
+        return len(os.listdir(self.root_dir)) - 2
 
     def __getitem__(self, idx):
-        # fixme: hacky - root_dir may not have '/'
-
-        data_path= self.root_dir + str(idx + 1) + '/' # aggregates
+        # data_path= self.root_dir + str(idx + 1) # aggregates
+        data_path = os.path.join(self.root_dir, str(idx))
 
         item = {'aggregate': None, 'ground_truths': []}
-        for filename in os.listdir(data_path):
-            # print('staty')
-            if filename.endswith('.npy'):
-                # agg_complex = torch.from_numpy(np.load(data_path + filename))
-                # agg = self._from_complex(data_path + filename) 
-                agg = np.load(data_path + filename)
-                item['aggregate'] = agg
-            else:
-                gt_path = data_path + 'gt/'
-                # print(gt_path)
-                for gt_name in os.listdir(gt_path):
-                    # gt = torch.from_numpy(np.load(gt_path + gt_name))
-                    gt = np.load(gt_path + gt_name)
-                    # gt = self._from_complex(gt_path + gt_name)
-                    # print(gt)
-                    item['ground_truths'].append(gt)
+
+        agg = np.load(os.path.join(data_path, 'agg.npy'))
+        item['aggregate'] = agg
+
+        gt_path = os.path.join(data_path, 'gt')
+        for gt_name in os.listdir(gt_path):
+            if gt_name.endswith('.npy'):
+                gt = np.load(os.path.join(gt_path, gt_name))
+                item['ground_truths'].append(gt)
         
         if self.transform:
             item = self.transform(item)
@@ -55,6 +43,9 @@ class Concat(object):
     """2-channel spectrogram to single-channel tensor
     """
     
+    def __init__(self, size):
+        self.size = size
+
     def __call__(self, item):
         transformed = {'aggregate': None, 'ground_truths': None}
         agg = self._from_complex(item['aggregate'])
@@ -71,16 +62,12 @@ class Concat(object):
         return transformed 
 
     def _from_complex(self, m):
-        num_channels, nrows, ncols = m.shape
+        # num_channels, nrows, ncols = m.shape
+        nrows, ncols = self.size
 
-        result = np.zeros((nrows * num_channels, ncols))
+        result = np.zeros((nrows * 2, ncols))
 
-        for i in range(num_channels):
-            start = i * nrows;
-            end = (i + 1) * nrows;
-            result[start:end, :] = m[i]
-
-        result[:nrows, :] = m[0]
-        result[nrows:, :] = m[1]
+        result[:nrows, :] = m[0][:, :ncols]
+        result[nrows:, :] = m[1][:, :ncols]
 
         return torch.t(torch.from_numpy(result)).float()

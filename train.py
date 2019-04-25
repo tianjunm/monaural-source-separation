@@ -8,7 +8,7 @@ from tensorboardX import SummaryWriter
 from model import models
 import model.dataset as dt
 
-BATCH_SIZE = 32 
+BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
 CRITERION = 'minloss'
 OUTPUT_DIR = './logs'
@@ -51,12 +51,12 @@ def main():
     device = get_device(args.gpu_id)
     # create network
     if args.model == 'base':
-        model = models.Baseline(258, 
+        model = models.Baseline(258,
                 seq_len=691,
                 num_sources=2).to(device)
-    
+
     else:
-        model = models.A1(258, 
+        model = models.A1(258,
                 # seq_len=691,
                 seq_len=691,
                 num_sources=2).to(device)
@@ -64,25 +64,25 @@ def main():
     # customized loss function
     if args.criterion == CRITERION:
         criterion = models.MinLoss(device, args.metric)
-    else: 
+    else:
         # TODO: currently unavailable due to dimension mismatch
         criterion = model.MSELoss(device, args.metric)
 
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    
+
     print('Preparing data...', end='')
     # root_dir = '/home/tianjunm/Documents/Projects/dataset/b2_spectrograms/'
     root_dir = '/home/tianjunm/Documents/Projects/dataset/a1_spectrograms/'
     # test_dir = '/home/tianjunm/Documents/Projects/dataset/b2_spectrograms_test/'
     # root_dir = '/Users/tianjunma/Projects/dataset/a1_spectrograms/'
-    dataset = dt.SignalDataset(root_dir=root_dir)
+    dataset = dt.SignalDataset(root_dir=root_dir, transform=dt.Concat())
     dataloader = torch.utils.data.DataLoader(
-            dataset, 
+            dataset,
             batch_size=args.batch_size,
             shuffle=True)
     # testset = dt.SignalDataset(root_dir=root_dir)
     # testloader = torch.utils.data.DataLoader(
-    #         dataset, 
+    #         dataset,
     #         batch_size=args.batch_size,
     #         shuffle=True)
     print('done!')
@@ -94,15 +94,12 @@ def main():
 
     print('Start training...')
     for epoch in range(NUM_EPOCHS):
-        # running_loss = 0.0
         epoch_loss = 0.0
-        # print('epoch {}'.format(epoch))
         for i, info in enumerate(dataloader):
-            # print('batch {}'.format(i))
             aggregate = info['aggregate'].to(device)
             ground_truths = info['ground_truths'].to(device)
             optimizer.zero_grad()
-            
+
             prediction = model(aggregate)
             loss = criterion(prediction, ground_truths)
             loss.backward()
@@ -111,21 +108,13 @@ def main():
             # log statistics
             # running_loss += loss
             epoch_loss += loss
-
-            # log every 20 mini-batches
-            # if (i > 0 and (i + 1) % 20 == 0):
-            #     print('[%d, %5d] loss: %.3f' %
-            #           (epoch + 1, i + 1, running_loss / 20))
-            #     # epoch_loss += running_loss
-            #     running_loss = 0
-        
         # with torch.no_grad():
         #     for data in testloader:
         #         aggregate = data['aggregate'].to(device)
         #         ground_truths = [gt.to(device) for gt in info['ground_truths']]
         #         prediction = model(aggregate)
         #         test_loss = criterion(prediction, ground_truths)
-                
+
         if epoch % 49 == 0:
             model_path = model_path_prefix + '_checkpoint.pth'
             torch.save(model.state_dict(), model_path)
@@ -148,7 +137,7 @@ def main():
                            },
                            epoch)
         epoch_loss = 0
-    
+
     print("Finished training!")
     writer.close()
 

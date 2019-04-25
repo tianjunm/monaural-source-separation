@@ -11,7 +11,7 @@ BATCH_SIZE = 32
 
 # INPUT_DIM = 3
 NUM_SOURCES = 2
-SEQ_LEN = 173 
+SEQ_LEN = 346
 
 
 def get_orders(dists):
@@ -60,6 +60,7 @@ def reshape(x, seq_len, bs):
 
 
 def flatten(t, n_sources):
+    seq_len, n_sources, input_dim = t.size()
     flattened = np.zeros((n_sources, seq_len * input_dim))
     for s in range(n_sources):
         flattened[s] = t[:, s, :].detach().numpy().flatten()
@@ -173,7 +174,7 @@ class MinLoss(nn.Module):
         """
         Args:
             prediction: bs, seq_len, num_sources, input_dim
-            ground_truths: nbs, seq_len, num_sources, input_dim
+            ground_truths: bs, seq_len, num_sources, input_dim
         Returns:
             loss: [bs,]
         """
@@ -183,7 +184,7 @@ class MinLoss(nn.Module):
         # gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
 
         # get distance measure (bs * num_sources)
-        dists = calc_dists(predictions, ground_truth, self.device, self.metric)
+        dists = get_min_dist(predictions, ground_truth, self.device, self.metric)
         
         loss = torch.sum(dists) / bs
         
@@ -238,10 +239,10 @@ class A1(nn.Module):
 
     def forward(self, x):
         bs = x.size()[0]
-        x_ = reshape(x, self.seq_len, bs)
-        out, _ = self.lstm(x_)
+        # x_ = reshape(x, self.seq_len, bs)
+        out, _ = self.lstm(x)
         ys = self.fc(F.relu(out))
         # # prediction = torch.split(ys, self.input_dim, dim=-1)
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
-        return prediction
+        return prediction 
