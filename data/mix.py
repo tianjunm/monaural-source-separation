@@ -132,8 +132,7 @@ class Mixer():
 
         '''
         # self._save_metadata(out_name, out_path, all_classes)
-        self._save_metadata(dataset_dir, metadata)
-        self._save_media(dataset_dir, i)
+        self._save_media(dataset_dir, metadata, i)
         # self._save_config(out_name, out_path)
 
     # PRIVATE METHODS
@@ -141,7 +140,7 @@ class Mixer():
     def _save_metadata(self, dataset_dir, metadata):
         meta_path = '{}/meta.txt'.format(dataset_dir)
         create_dir(meta_path)
-        with open(meta_path, 'a+') as meta:
+        with open(meta_path, 'w+') as meta:
             for filename, src in metadata:
                 meta.write('{} {}\n'.format(filename, src))
 
@@ -206,14 +205,16 @@ class Mixer():
         create_dir(spect_path)
         np.save(spect_path, spect)
 
-    def _save_media(self, dataset_dir, i):
+    def _save_media(self, dataset_dir, metadata, i):
         '''
         :param dataset_dir: root directory of the entire dataset
         :param i: the ith generated sample in this dataset
         '''
 
         media_dir = dataset_dir + '/{}/'.format(str(i))
-        # media_dir = os.path.join(dataset_dir + '/{}/'.format(str(i))
+
+        # save text modality
+        self._save_metadata(media_dir, metadata)
 
         # aggregate
         log("Saving combined clip...", newline=True)
@@ -392,11 +393,17 @@ def main():
 
         # select waves from each class
         for src in args.selected_classes:
-            wav_id = random.randint(0, args.selection_range - 1)
-            filename = all_filenames[src][wav_id].strip()
+            while True:
+                if args.selection_range == -1:
+                    wav_id = random.randint(0, len(all_filenames[src]))
+                else:
+                    wav_id = random.randint(0, args.selection_range - 1)
+                filename = all_filenames[src][wav_id].strip()
+                wav_path = os.path.join(args.raw_data_dir, filename)
+                wav_file = AudioSegment.from_wav(wav_path)
+                if len(wav_file) >= args.aggregate_duration * SEC_LEN:
+                    break
             metadata.append((filename, src))
-            wav_path = os.path.join(args.raw_data_dir, filename)
-            wav_file = AudioSegment.from_wav(wav_path)
             mixer.wav_files.append(wav_file)
         
         assert(len(mixer.wav_files) == len(args.selected_classes))

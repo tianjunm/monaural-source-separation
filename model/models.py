@@ -11,7 +11,7 @@ BATCH_SIZE = 32
 
 # INPUT_DIM = 3
 NUM_SOURCES = 2
-SEQ_LEN = 346
+SEQ_LEN = 173 
 
 
 def get_orders(dists):
@@ -60,10 +60,10 @@ def reshape(x, seq_len, bs):
 
 
 def flatten(t, n_sources):
-    seq_len, n_sources, input_dim = t.size()
+    seq_len, _, input_dim = t.size()
     flattened = np.zeros((n_sources, seq_len * input_dim))
     for s in range(n_sources):
-        flattened[s] = t[:, s, :].detach().numpy().flatten()
+        flattened[s] = t[:, s, :].cpu().detach().numpy().flatten()
     return flattened
 
 
@@ -119,17 +119,6 @@ def get_min_dist(preds, gts, device, metric):
 
     return dists
 
-def get_mse(preds, gts, device):
-    bs, _, n_sources, _ = preds.size()
-    dists = torch.zeros(bs, n_sources).to(device)
-    
-    for b in range(bs):
-        for src_id in range(n_sources):
-            pred = preds[:, :, src_id, :]
-            gt_match = gts[:, :, src_id, :]
-            dists[b, src_id] = torch.norm(pred[b] - gt_match[b])
-    return dists
-
 
 class MSELoss(nn.Module):
     def __init__(self, device, metric):
@@ -141,21 +130,31 @@ class MSELoss(nn.Module):
         """
         Args:
             prediction: bs, seq_len, num_sources, input_dim
-            ground_truths: nbs, seq_len, num_sources, input_dim
+            ground_truths: bs, seq_len, num_sources, input_dim
         Returns:
             loss: [bs,]
         """
-        # seq_len = predictions[0].size()[0]
-        # bs = predictions[0].size()[1]
-        # # reshape gts into seq_len, bs, input_dim
-        # gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
+        bs = predictions.size()[0]
+        dists = self._calc_dists(predictions, ground_truths)
 
-        # get distance measure (bs * num_sources)
-        dists = calc_dists(predictions, groud_truths, self.device, self.metric)
-        
-        loss = torch.sum(dists)
+        loss = torch.sum(dists) / bs
         
         return loss
+
+    def _calc_dists(self, preds, gts):
+        bs, _, n_sources, _ = preds.size()
+        dists = torch.zeros(bs, n_sources).to(self.device)
+        
+        for b in range(bs):
+            for src_id in range(n_sources):
+                pred = preds[:, :, src_id, :]
+                gt_match = gts[:, :, src_id, :]
+                if self.metric == 'correlation':
+                    dist = get_correlation(pred[b], gt_match[b])
+                else:
+                    dist = torch.norm(pred[b] - gt_match[b])
+                dists[b, src_id] = dist
+        return dists
 
 
 class MinLoss(nn.Module):
@@ -178,13 +177,14 @@ class MinLoss(nn.Module):
         Returns:
             loss: [bs,]
         """
+        bs = predictions.size()[0]
         # seq_len = predictions[0].size()[0]
         # bs = predictions[0].size()[1]
         # # reshape gts into seq_len, bs, input_dim
         # gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
 
         # get distance measure (bs * num_sources)
-        dists = get_min_dist(predictions, ground_truth, self.device, self.metric)
+        dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
         
         loss = torch.sum(dists) / bs
         
@@ -239,10 +239,125 @@ class A1(nn.Module):
 
     def forward(self, x):
         bs = x.size()[0]
-        # x_ = reshape(x, self.seq_len, bs)
         out, _ = self.lstm(x)
         ys = self.fc(F.relu(out))
-        # # prediction = torch.split(ys, self.input_dim, dim=-1)
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
         return prediction 
+
+
+class A2(nn.Module):
+    """lstm, fc; relu"""
+    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
+        super(A2, self).__init__()
+        self.input_dim = input_dim
+        self.num_layers = num_layers
+        self.num_sources = num_sources
+        self.seq_len = seq_len
+        self.lstm = nn.LSTM(input_dim, 100, num_layers=self.num_layers, batch_first=True)
+        self.fc1 = nn.Linear(100, 100, bias=True)
+        self.fc2 = nn.Linear(100, 100, bias=True)
+        self.fc3 = nn.Linear(100, num_sources * input_dim, bias=True)
+
+    def forward(self, x):
+        bs = x.size()[0]
+        out, _ = self.lstm(x)
+        ys = self.fc1(F.relu(out))
+        ys = self.fc2(F.relu(out))
+        ys = self.fc3(F.relu(out))
+        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
+        prediction = x.unsqueeze(2) * ys
+        return prediction 
+
+
+class B1(nn.Module):
+    '''A1 with self-attention'''
+
+    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
+        super(B1, self).__init__()
+        self.input_dim = input_dim
+        self.num_layers = num_layers
+        self.num_sources = num_sources
+        self.seq_len = seq_len
+        self.lstm = nn.LSTM(input_dim, 100, batch_first=True)
+        self.fc = nn.Linear(100, num_sources * input_dim, bias=True)
+
+    def forward(self, x):
+        # x size: [bs, seq_len, input_dim]
+        bs = x.size()[0]
+        out, _ = self.lstm(x)
+        ys = self.fc(F.relu(out))
+        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
+        prediction = x.unsqueeze(2) * ys
+        return prediction, ys
+
+
+class LookListen_Base(nn.Module):
+    
+    def __init__(self, seq_len, input_dim, in_chan=2, chan=6, num_sources=NUM_SOURCES):
+        super(LookListen_Base, self).__init__()
+        self.seq_len = seq_len
+        self.input_dim = input_dim
+        self.num_sources = num_sources
+        self.in_chan = in_chan
+        self.chan = chan
+        # self.kernel_dims = [(1, 7), (7, 1), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5)]
+        # self.dilation_dims = [(1, 1), (1, 1), (1, 1), (2, 1), (4, 1), (8, 1), (16, 1), (32, 1), (1, 1), (2, 2), (4, 4), (8, 8), (16, 16), (32, 32), (1, 1)]
+
+        self.kernel_dims = [(1, 7), (7, 1), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5)]
+        self.dilation_dims = [(1, 1), (1, 1), (1, 1), (2, 2), (4, 4), (8, 8), (1, 1)]
+        assert(len(self.kernel_dims) == len(self.dilation_dims))
+        
+        self.num_layers = len(self.kernel_dims)
+        self.convs = nn.ModuleList(self._construct_convs())
+        self.bns = nn.ModuleList(self._construct_bns())
+
+        self.blstm = nn.LSTM(8 * self.input_dim, hidden_size=200, batch_first=True, bidirectional=True)
+        self.fc1 = nn.Linear(400, 600, bias=True)
+        self.fc2 = nn.Linear(600, self.input_dim * self.in_chan * self.num_sources, bias=True)
+
+    def forward(self, x):
+        x_in = torch.cat(list(x.permute(1, 0, 2, 3)), -1)
+        # dilated convolutional network
+        for conv, bn in zip(self.convs, self.bns):
+            x = F.relu(bn(conv(x)))
+        
+        # audio-visual fusion 
+        x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)  # [bs, seq_len, out_chan * input_dim]
+        
+        # bidirectional lstm
+        x, _ = self.blstm(x)
+        x = F.relu(x)
+
+        # fcs
+        x = F.relu(self.fc1(x)) 
+        x = F.relu(self.fc2(x)) 
+
+        x = x.view(-1, self.seq_len, self.num_sources, self.input_dim * self.in_chan)
+        prediction = x_in.unsqueeze(2) * x 
+        return prediction, x
+
+    def _construct_convs(self):
+        convs = []
+        for i, kernel_size in enumerate(self.kernel_dims):
+            in_chan = 2 if i == 0 else self.chan
+            out_chan = 8 if i == self.num_layers - 1 else self.chan
+
+            dilation = self.dilation_dims[i]
+
+            rpad = dilation[0] * (kernel_size[0] - 1) // 2
+            cpad = dilation[1] * (kernel_size[1] - 1) // 2
+            padding= [rpad, cpad]
+
+            conv = nn.Conv2d(in_chan, out_chan, kernel_size=kernel_size, dilation=dilation, padding=padding)
+            convs.append(conv)
+        return convs
+
+    def _construct_bns(self):
+        bns = []
+        for i in range(self.num_layers):
+            chan = 8 if i == self.num_layers - 1 else self.chan 
+            bn = nn.BatchNorm2d(chan)
+            bns.append(bn)
+        return bns
+
