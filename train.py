@@ -135,6 +135,7 @@ def main():
         train_loss = 0.0
         test_loss = 0.0 
         for i, info in enumerate(dataloader):
+            torch.cuda.empty_cache()
             aggregate = info['aggregate'].to(device)
             ground_truths = info['ground_truths'].to(device)
             optimizer.zero_grad()
@@ -147,6 +148,7 @@ def main():
 
         with torch.no_grad():
             for test_data in testloader:
+            torch.cuda.empty_cache()
                 aggregate = test_data['aggregate'].to(device)
                 ground_truths = test_data['ground_truths'].to(device)
                 prediction, _ = model(aggregate)

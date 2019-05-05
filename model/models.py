@@ -178,10 +178,6 @@ class MinLoss(nn.Module):
             loss: [bs,]
         """
         bs = predictions.size()[0]
-        # seq_len = predictions[0].size()[0]
-        # bs = predictions[0].size()[1]
-        # # reshape gts into seq_len, bs, input_dim
-        # gts = [reshape(gt, seq_len, bs) for gt in ground_truths]
 
         # get distance measure (bs * num_sources)
         dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
@@ -243,11 +239,11 @@ class A1(nn.Module):
         ys = self.fc(F.relu(out))
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
-        return prediction 
+        return prediction, ys
 
 
 class A2(nn.Module):
-    """lstm, fc; relu"""
+    """lstm, fc; relu, more complicated A1"""
     def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
         super(A2, self).__init__()
         self.input_dim = input_dim
@@ -260,6 +256,7 @@ class A2(nn.Module):
         self.fc3 = nn.Linear(100, num_sources * input_dim, bias=True)
 
     def forward(self, x):
+        # TODO: handle text
         bs = x.size()[0]
         out, _ = self.lstm(x)
         ys = self.fc1(F.relu(out))
@@ -280,16 +277,39 @@ class B1(nn.Module):
         self.num_sources = num_sources
         self.seq_len = seq_len
         self.lstm = nn.LSTM(input_dim, 100, batch_first=True)
-        self.fc = nn.Linear(100, num_sources * input_dim, bias=True)
+        self.fc0 = nn.Linear(input_dim, input_dim, bias=True)
+        self.fc1 = nn.Linear(100, num_sources * input_dim, bias=True)
 
     def forward(self, x):
         # x size: [bs, seq_len, input_dim]
+        bs = x.size()[0]
+        x_attn = self.fc0(x)
+        out, _ = self.lstm(x + x_attn)
+        ys = self.fc1(F.relu(out))
+        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
+        prediction = x.unsqueeze(2) * ys
+        return prediction, ys
+
+
+class C1(nn.Module):
+    '''A1 + text modality'''
+
+    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
+        super(A1, self).__init__()
+        self.input_dim = input_dim
+        self.num_layers = num_layers
+        self.num_sources = num_sources
+        self.seq_len = seq_len
+        self.lstm = nn.LSTM(input_dim, 100, batch_first=True)
+        self.fc = nn.Linear(100, num_sources * input_dim, bias=True)
+
+    def forward(self, x):
         bs = x.size()[0]
         out, _ = self.lstm(x)
         ys = self.fc(F.relu(out))
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
-        return prediction, ys
+        return prediction 
 
 
 class LookListen_Base(nn.Module):

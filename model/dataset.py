@@ -17,7 +17,7 @@ class SignalDataset(Dataset):
         self.root_dir = root_dir
 
     def __len__(self):
-        return len(os.listdir(self.root_dir)) - 2
+        return len(os.listdir(self.root_dir)) - 1
 
     def __getitem__(self, idx):
         # data_path= self.root_dir + str(idx + 1) # aggregates
@@ -37,6 +37,36 @@ class SignalDataset(Dataset):
         if self.transform:
             item = self.transform(item)
         return item
+
+
+class ToTensor(object):
+    '''2-channel numpy spectrogram to 2-channle tensor spectrogram'''    
+
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, item):
+        transformed = {'aggregate': None, 'ground_truths': None}
+        agg = self._from_numpy(item['aggregate'])
+        transformed['aggregate'] = agg  
+        
+        n_channels, seq_len, input_dim = agg.size()
+        n_sources = len(item['ground_truths'])
+
+        gts = torch.zeros((n_channels, seq_len, n_sources, input_dim))
+        for s, gt in enumerate(item['ground_truths']):
+            gts[:, :, s, :] = self._from_numpy(gt)
+        
+        gts = torch.cat(list(gts), -1)
+        transformed['ground_truths'] = torch.FloatTensor(gts)
+        return transformed 
+
+    def _from_numpy(self, m):
+        input_dim, seq_len = self.size
+        result = torch.zeros((2, seq_len, input_dim))
+        result[0] = torch.from_numpy(m[0, :, :seq_len].T)
+        result[1] = torch.from_numpy(m[1, :, :seq_len].T)
+        return result.float() 
 
 
 class Concat(object):
@@ -71,3 +101,5 @@ class Concat(object):
         result[nrows:, :] = m[1][:, :ncols]
 
         return torch.t(torch.from_numpy(result)).float()
+
+

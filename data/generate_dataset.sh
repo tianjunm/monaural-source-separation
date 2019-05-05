@@ -1,19 +1,22 @@
 #!/bin/bash
 
-NUM_SOURCES=2
-AGG_DUR=2
-GT_DUR=1
-RANGE=1
-RAW_DIR="./"
+NUM_SOURCES=7
+SELECTED_CLASSES=("Acoustic_guitar" "Applause" "Saxophone" "Bark" "Cough" "Electric_piano" "Telephone")
+AGG_DUR=4
+#GT_DUR=1.5
+GT_DURS=(2.0 2.0 2.0 2.0 2.0 2.0 2.0)
+RANGE=10
+RAW_DIR="/home/ubuntu/dataset/FSDKaggle2018.audio_train"
+DATASET_DIR="/home/ubuntu/dataset/dataset_e1/train_e1"
 
 python mix.py \
     --raw_data_dir $RAW_DIR \
     --num_sources $NUM_SOURCES \
     --aggregate_duration $AGG_DUR \
-    --num_examples 3 \
-    --ground_truth_durations $GT_DUR $GT_DUR \
-    --selected_classes "Acoustic_guitar" "Applause" \
-    --dataset_dir "./tmp" \
+    --num_examples 6000 \
+    --ground_truth_durations "${GT_DURS[@]}" \
+    --selected_classes "${SELECTED_CLASSES[@]}" \
+    --dataset_dir $DATASET_DIR \
     --selection_range $RANGE
  
 # COUNTER=0
