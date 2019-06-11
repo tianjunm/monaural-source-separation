@@ -407,6 +407,7 @@ def main():
             mixer.wav_files.append(wav_file)
         
         assert(len(mixer.wav_files) == len(args.selected_classes))
+        # print(args.selected_classes)
         # print(mixer.wav_files)
         # print(args.num_sources)
         assert(len(mixer.wav_files) == args.num_sources)
