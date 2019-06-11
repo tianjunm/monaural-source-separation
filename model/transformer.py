@@ -21,6 +21,12 @@ import matplotlib.pyplot as plt
   doi       = {10.18653/v1/P17-4012}
 }
 """
+# D_MODEL = 512
+D_MODEL = 128 
+# D_FF = 2048
+D_FF = 512 
+# H = 8
+H = 8
 
 
 "UTILITIES"
@@ -49,7 +55,7 @@ def attention(query, key, value, mask=None, dropout=None):
     return torch.matmul(p_attn, value), p_attn
 
 
-def make_model(freq_range, N=6, d_model=512, d_ff=2048, h=8, dropout=0.1):
+def make_model(freq_range, N=6, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
