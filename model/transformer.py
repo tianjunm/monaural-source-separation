@@ -22,11 +22,11 @@ import matplotlib.pyplot as plt
 }
 """
 # D_MODEL = 512
-D_MODEL = 128 
+D_MODEL = 256 
 # D_FF = 2048
 D_FF = 512 
 # H = 8
-H = 8
+H = 2
 
 
 "UTILITIES"
@@ -42,6 +42,7 @@ def subsequent_mask(size):
     return torch.from_numpy(subsequent_mask) == 0
 
 
+# TODO: harvard paper has mask = 1 everyehere, is it the same with mask=None?
 def attention(query, key, value, mask=None, dropout=None):
     "Compute 'Scaled Dot Product Attention'"
     d_k = query.size(-1)
@@ -55,19 +56,20 @@ def attention(query, key, value, mask=None, dropout=None):
     return torch.matmul(p_attn, value), p_attn
 
 
-def make_model(freq_range, N=6, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
+def make_model(freq_range, N=2, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     position = PositionalEncoding(d_model, dropout)
+    # FIXME: experimenting with num_sources
     model = EncoderDecoder(
         Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-        Decoder(DecoderLayer(d_model, c(attn), c(attn), 
+        Decoder(DecoderLayer(d_model, c(attn), c(attn),
                              c(ff), dropout), N),
         nn.Sequential(Embeddings(d_model, freq_range), c(position)),
-        nn.Sequential(Embeddings(d_model, freq_range), c(position)),
-        Generator(d_model, freq_range))
+        nn.Sequential(Embeddings(d_model, freq_range, num_sources=2), c(position)),
+        Generator(d_model, freq_range, num_sources=2))
 
     # This was important from their code.
     # Initialize parameters with Glorot / fan_avg.
@@ -77,11 +79,28 @@ def make_model(freq_range, N=6, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
     return model
 
 
+def greedy_decoder(model, src, seq_len, num_sources, freq_range, device, 
+        start_symbol=1):
+    memory = model.encode(src, None)
+    nbatch = 1
+    ntoken = 1
+    ys = torch.ones(nbatch, ntoken, num_sources, 
+            freq_range).fill_(start_symbol).type_as(src.data).to(device)
+    for i in range(seq_len):
+        mask = subsequent_mask(ys.size(1)).type_as(src.data).to(device)
+        out = model.decode(memory, None, ys, mask)
+        out = model.generator(out)  # [1 seq_len freq_range*num_sources]
+        out = torch.stack([ys, torch.ones(nbatch, ntoken, num_sources * \
+                freq_range).type_as(src.data).fill_(out)], dim=1)
+
+    return ys
+        
+
 class Generator(nn.Module):
     "Define standard linear + softmax generation step."
-    def __init__(self, d_model, freq_range):
+    def __init__(self, d_model, freq_range, num_sources=1):
         super(Generator, self).__init__()
-        self.proj = nn.Linear(d_model, freq_range)
+        self.proj = nn.Linear(d_model, freq_range * num_sources)
 
     def forward(self, x):
         return F.log_softmax(self.proj(x), dim=-1)
@@ -173,7 +192,7 @@ class DecoderLayer(nn.Module):
         self.src_attn = src_attn
         self.feed_forward = feed_forward
         self.sublayer = clones(SublayerConnection(size, dropout), 3)
- 
+
     def forward(self, x, memory, src_mask, tgt_mask):
         "Follow Figure 1 (right) for connections."
         m = memory
@@ -195,11 +214,11 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class Embeddings(nn.Module):
-    def __init__(self, d_model, freq_range):
+    def __init__(self, d_model, freq_range, num_sources=1):
         super(Embeddings, self).__init__()
         # self.lut = nn.Embedding(freq_range, d_model)
         # FIXME: confirm legitimacy of linear transformation
-        self.lut = nn.Linear(freq_range, d_model)
+        self.lut = nn.Linear(freq_range * num_sources, d_model)
         self.d_model = d_model
 
     def forward(self, x):
@@ -282,3 +301,4 @@ class Decoder(nn.Module):
         for layer in self.layers:
             x = layer(x, memory, src_mask, tgt_mask)
         return self.norm(x)
+
