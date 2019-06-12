@@ -82,19 +82,19 @@ def make_model(freq_range, N=2, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
 def greedy_decoder(model, src, seq_len, num_sources, freq_range, device, 
         start_symbol=1):
     memory = model.encode(src, None)
+    # print(memory.shape)
     nbatch = 1
     ntoken = 1
-    ys = torch.ones(nbatch, ntoken, num_sources, 
+    ys = torch.ones(nbatch, ntoken, num_sources * \
             freq_range).fill_(start_symbol).type_as(src.data).to(device)
     for i in range(seq_len):
         mask = subsequent_mask(ys.size(1)).type_as(src.data).to(device)
         out = model.decode(memory, None, ys, mask)
-        out = model.generator(out)  # [1 seq_len freq_range*num_sources]
-        out = torch.stack([ys, torch.ones(nbatch, ntoken, num_sources * \
-                freq_range).type_as(src.data).fill_(out)], dim=1)
+        # [1 seq_len freq_range*num_sources]
+        out = model.generator(out)
+        ys = torch.cat([ys, out[:, -1, :].unsqueeze(1).data], dim=1)
+    return ys 
 
-    return ys
-        
 
 class Generator(nn.Module):
     "Define standard linear + softmax generation step."
