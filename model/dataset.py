@@ -40,7 +40,7 @@ class SignalDataset(Dataset):
 
 
 class ToTensor(object):
-    '''2-channel numpy spectrogram to 2-channle tensor spectrogram'''    
+    "2-channel numpy spectrogram to 2-channle tensor spectrogram"
 
     def __init__(self, size):
         self.size = size
@@ -73,13 +73,15 @@ class Concat(object):
     """2-channel spectrogram to single-channel tensor
     """
     
-    def __init__(self, size):
+    def __init__(self, size, encdec=False):
         self.size = size
+        self.encdec= encdec 
 
     def __call__(self, item):
-        transformed = {'aggregate': None, 'ground_truths': None}
+        transformed = {'aggregate': [], 'ground_truths': [],
+                'ground_truths_in': [], 'ground_truths_gt': []}
         agg = self._from_complex(item['aggregate'])
-        transformed['aggregate'] = agg  
+        transformed['aggregate'] = agg
 
         seq_len, input_dim = agg.size()
         n_sources = len(item['ground_truths'])
@@ -87,8 +89,22 @@ class Concat(object):
         gts = torch.zeros((seq_len, n_sources, input_dim))
         for s, gt in enumerate(item['ground_truths']):
             gts[:, s, :] = self._from_complex(gt)
-        
+
+        if (self.encdec):
+            # ground truths preceded by start symbols
+            # combine last 2 dimensions
+            start = torch.ones(1, n_sources * input_dim)
+            # end = torch.zeros(1, n_sources, input_dim)
+            gts_reshape = gts.view(seq_len, n_sources * input_dim)
+            # [nbatch, seq_len+1, n_sources * input_dim]
+            tgt_in = torch.cat([start, gts_reshape])
+            # [nbatch, seq_len+1, n_sources, input_dim]
+            # tgt_gt = torch.cat([gts, end])
+            transformed['ground_truths_in'] = torch.FloatTensor(tgt_in)
+            transformed['ground_truths_gt'] = torch.FloatTensor(gts)
+            
         transformed['ground_truths'] = torch.FloatTensor(gts)
+
         return transformed 
 
     def _from_complex(self, m):
@@ -101,5 +117,4 @@ class Concat(object):
         result[nrows:, :] = m[1][:, :ncols]
 
         return torch.t(torch.from_numpy(result)).float()
-
 

@@ -5,7 +5,7 @@ import argparse
 import torch
 import torch.optim as optim
 from tensorboardX import SummaryWriter
-from model import models
+from model import models, transformer
 import model.dataset as dt
 
 # default parameters
@@ -50,10 +50,28 @@ def get_device(gpu_id):
     return device
 
 
+def run_epoch(data, model, model_name, n_sources, input_dim, device, criterion):
+    aggregate = data['aggregate'].to(device)
+    if model_name == 'transformer':
+        ground_truths_in = data['ground_truths_in'].to(device)
+        ground_truths = data['ground_truths_gt'].to(device)
+        mask_size = ground_truths_in.shape[1]
+        subseq_mask = transformer.subsequent_mask(mask_size).to(device)
+        out = model(aggregate, ground_truths_in, None, subseq_mask)
+        # FIXME: input * mask --> separated results
+        # prediction = model.generator(aggregate, out).view(-1, mask_size, 
+        #         n_sources, input_dim)[:, :-1]
+        prediction = model.generator(aggregate, out)
+        loss = criterion(prediction, ground_truths)
+    else:
+        ground_truths = data['ground_truths'].to(device)
+        prediction, _ = model(aggregate)
+        loss = criterion(prediction, ground_truths)
+    
+    return loss
+
 def main():
     args = get_argument()
-
-    # cuda
     device = get_device(args.gpu_id)
 
     print('Preparing data...', end='')
@@ -61,28 +79,13 @@ def main():
     test_dir = args.test_dir
     
     spect_dim = tuple(args.spect_dim) 
-    input_dim = args.num_sources * spect_dim[0] 
-    
-    # FIXME: bad layout
-    if args.model == 'google':
-        transform = dt.ToTensor(spect_dim)
-    else:
-        transform = dt.Concat(spect_dim)
+    # input_dim = args.num_sources * spect_dim[0] 
+    input_dim = 2 * spect_dim[0] 
+   
+    "data loading function"
+    transform = dt.Concat(spect_dim)
 
-    dataset = dt.SignalDataset(root_dir=train_dir, transform=transform)
-    dataloader = torch.utils.data.DataLoader(
-            dataset, 
-            batch_size=args.batch_size,
-            shuffle=True)
-
-    testset = dt.SignalDataset(root_dir=test_dir, transform=transform)
-    testloader = torch.utils.data.DataLoader(
-            testset, 
-            batch_size=args.batch_size)
-
-    print('done!')
-
-    # create network
+    "network creation"
     if args.model == 'A1':
         model = models.A1(
                 input_dim,
@@ -103,15 +106,34 @@ def main():
                 num_sources=args.num_sources).to(device)
     
     elif args.model == 'google':
+        transform = dt.ToTensor(spect_dim)
         model = models.LookListen_Base(
                 seq_len=spect_dim[1],
                 input_dim=spect_dim[0]).to(device)
+
+    elif args.model == 'transformer':
+        transform = dt.Concat(size=spect_dim, encdec=True)
+        # freq_range, seq_len = spect_dim
+        model = transformer.make_model(input_dim).to(device)
     else:
         model = models.Baseline(
                 input_dim, 
                 seq_len=spect_dim[1],
                 num_sources=args.num_sources).to(device)
 
+    "create dataset"
+    dataset = dt.SignalDataset(root_dir=train_dir, transform=transform)
+    dataloader = torch.utils.data.DataLoader(
+            dataset, 
+            batch_size=args.batch_size,
+            shuffle=True)
+
+    testset = dt.SignalDataset(root_dir=test_dir, transform=transform)
+    testloader = torch.utils.data.DataLoader(
+            testset, 
+            batch_size=args.batch_size)
+
+    print('done!')
     # customized loss function
     if args.criterion == 'minloss':
         criterion = models.MinLoss(device, args.metric)
@@ -119,10 +141,11 @@ def main():
         # TODO: currently unavailable due to dimension mismatch
         criterion = models.MSELoss(device, args.metric)
 
+    # FIXME: trying random configs for optimizers
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-
+    # optimizer = optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
     # tensorboard writer
-    writer = SummaryWriter(log_dir=args.output_dir)
+    writer = SummaryWriter(logdir=args.output_dir)
 
     model_path_prefix = '{}/{}'.format(args.model_dir, args.model)
    
@@ -136,24 +159,18 @@ def main():
         test_loss = 0.0 
         for i, info in enumerate(dataloader):
             torch.cuda.empty_cache()
-            aggregate = info['aggregate'].to(device)
-            ground_truths = info['ground_truths'].to(device)
             optimizer.zero_grad()
-
-            prediction, _ = model(aggregate)
-            loss = criterion(prediction, ground_truths)
+            
+            loss = run_epoch(info, model, args.model, args.num_sources,
+                    input_dim, device, criterion) 
             train_loss += loss
             loss.backward()
             optimizer.step()
 
         with torch.no_grad():
             for test_data in testloader:
-            torch.cuda.empty_cache()
-                aggregate = test_data['aggregate'].to(device)
-                ground_truths = test_data['ground_truths'].to(device)
-                prediction, _ = model(aggregate)
-                loss = criterion(prediction, ground_truths)
-                test_loss += loss
+                test_loss += run_epoch(test_data, model, args.model,
+                        args.num_sources, input_dim, device, criterion)
 
         # log loss in graph
         legend_train = 'train loss'
@@ -162,18 +179,20 @@ def main():
         avg_test_loss = test_loss / len(testset)
 
         if epoch % 49 == 0:
-            model_path = model_path_prefix + '_checkpoint_{}_{}_{}.pth'.format(args.metric, args.job_id, epoch)
+            model_path = model_path_prefix + '_checkpoint_{}_{}_{}\
+                    .pth'.format(args.metric, args.job_id, epoch)
             torch.save(model.state_dict(), model_path)
             # curr_loss = avg_test_loss
 
-        print('epoch %d, train loss: %.3f, val loss: %.3f' % (epoch + 1, avg_loss, avg_test_loss))
+        print('epoch %d, train loss: %.3f, val loss: %.3f' % \
+                (epoch + 1, avg_loss, avg_test_loss))
 
-        writer.add_scalars('data/{}_loss_{}_{}'.format(args.model, args.metric, args.job_id),
-                           {
-                               legend_train: avg_loss,
-                               legend_test: avg_test_loss,
-                           },
-                           epoch)
+        writer.add_scalars('data/{}_loss_{}_{}'.format(args.model,
+            args.metric, args.job_id),
+            {
+               legend_train: avg_loss,
+               legend_test: avg_test_loss,
+            }, epoch)
 
     print("Finished training!")
     writer.close()
