@@ -56,7 +56,8 @@ def attention(query, key, value, mask=None, dropout=None):
     return torch.matmul(p_attn, value), p_attn
 
 
-def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
+def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
+        num_sources=2, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
@@ -68,8 +69,9 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
         Decoder(DecoderLayer(d_model, c(attn), c(attn),
                              c(ff), dropout), N),
         nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-        nn.Sequential(Embeddings(d_model, input_dim, num_sources=2), c(position)),
-        Generator(d_model, input_dim, num_sources=2))
+        nn.Sequential(Embeddings(d_model, input_dim,
+            num_sources=num_sources), c(position)),
+        Generator(d_model, input_dim, num_sources=num_sources))
 
     # This was important from their code.
     # Initialize parameters with Glorot / fan_avg.
@@ -79,23 +81,29 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H, dropout=0.1):
     return model
 
 
+# FIXME: strange CUDA issue: how to achieve efficient memory usage
 def greedy_decoder(model, src, seq_len, num_sources, input_dim, device, 
-        start_symbol=1):
+        learn_mask=True, start_symbol=1):
+    "Decode the separation results."
     memory = model.encode(src, None)
-    # print(memory.shape)
-    nbatch = 1
+    nbatch = src.shape[0]
     ntoken = 1
+
+    "The 'start' symbol"
     ys = torch.ones(nbatch, ntoken, num_sources * \
             input_dim).fill_(start_symbol).type_as(src.data).to(device)
+
     for i in range(seq_len):
-        mask = subsequent_mask(ys.size(1)).type_as(src.data).to(device)
-        out = model.decode(memory, None, ys, mask)
-        # [1 seq_len input_dim*num_sources]
-        out = model.generator(out)
+        subseq_mask = subsequent_mask(ys.size(1)).type_as(src.data).to(device)
+        out = model.decode(memory, None, ys, subseq_mask)
+        # [1 seq_len input_dim * num_sources]
+        out = model.generator(src, out, learn_mask=learn_mask).view(nbatch,
+                -1, num_sources * input_dim)
         ys = torch.cat([ys, out[:, -1, :].unsqueeze(1).data], dim=1)
-    return ys 
+    return ys[:, 1:]
 
 
+# FIXME: very sketchy, need to fix style and notations
 class Generator(nn.Module):
     "Define standard linear + softmax generation step."
     def __init__(self, d_model, input_dim, num_sources=1):
@@ -103,13 +111,20 @@ class Generator(nn.Module):
         self.n_sources = num_sources
         self.proj = nn.Linear(d_model, input_dim * num_sources)
 
-    def forward(self, agg, x):
+    def forward(self, agg, x, learn_mask=True):
+        s = min(agg.shape[1], x.shape[1])
+
         _, seq_len, input_dim = agg.shape
         # sep_mask = F.log_softmax(self.proj(x), dim=-1).view(-1, 
         #         seq_len + 1, self.n_sources, input_dim)[:, :-1]
-        sep_mask = self.proj(x).view(-1, seq_len + 1, self.n_sources,
-                input_dim)[:, :-1]
-        return agg.unsqueeze(2) * sep_mask
+        output = self.proj(x)[:, :s].view(-1, s, self.n_sources,
+                input_dim)
+        # print(sep_mask.shape)
+        if learn_mask:
+            return agg[:, :s].unsqueeze(2) * output[:, :s] 
+        else:
+            return output[:, :s]
+
 
 class LayerNorm(nn.Module):
     "Construct a layernorm module (See citation for details)."

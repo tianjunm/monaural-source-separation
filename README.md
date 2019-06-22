@@ -6,13 +6,23 @@
 
 ## roadmap
 
+### plan
+
+#### Jun
+6.18
+implement baseline in 
+6.19
+* MEETING
+
+6.20
+
+#### Jul
+
+#### Aug 
 
 
 ## dataset
-
-Audio samples are mainly gathered from Google AI's AudioSet.
-
-Toy dataset is consist of 5 categories. There are 100 categories in total in the complete dataset.
+FSDKaggle 2018, based on 
 
 
 
@@ -164,4 +174,3 @@ doing randomized search (fix categories, controlled)
 questions
 
 * how did LSTM learn sequential patterns?
-* 

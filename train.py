@@ -37,6 +37,8 @@ def get_argument():
     parser.add_argument('--test_dir', type=str, default=TEST_DIR)
     parser.add_argument('--model_dir', type=str)
     parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR)
+    parser.add_argument('--learn_mask', type=int, default=1)
+    parser.add_argument('--dataset', type=str, required=True)
     return parser.parse_args()
 
 
@@ -50,7 +52,8 @@ def get_device(gpu_id):
     return device
 
 
-def run_epoch(data, model, model_name, n_sources, input_dim, device, criterion):
+def run_epoch(data, model, model_name, n_sources, input_dim, device, learn_mask, 
+        criterion):
     aggregate = data['aggregate'].to(device)
     if model_name == 'transformer':
         ground_truths_in = data['ground_truths_in'].to(device)
@@ -58,10 +61,7 @@ def run_epoch(data, model, model_name, n_sources, input_dim, device, criterion):
         mask_size = ground_truths_in.shape[1]
         subseq_mask = transformer.subsequent_mask(mask_size).to(device)
         out = model(aggregate, ground_truths_in, None, subseq_mask)
-        # FIXME: input * mask --> separated results
-        # prediction = model.generator(aggregate, out).view(-1, mask_size, 
-        #         n_sources, input_dim)[:, :-1]
-        prediction = model.generator(aggregate, out)
+        prediction = model.generator(aggregate, out, learn_mask=learn_mask)
         loss = criterion(prediction, ground_truths)
     else:
         ground_truths = data['ground_truths'].to(device)
@@ -109,12 +109,14 @@ def main():
         transform = dt.ToTensor(spect_dim)
         model = models.LookListen_Base(
                 seq_len=spect_dim[1],
-                input_dim=spect_dim[0]).to(device)
+                input_dim=spect_dim[0],
+                num_sources=args.num_sources).to(device)
 
     elif args.model == 'transformer':
         transform = dt.Concat(size=spect_dim, encdec=True)
         # freq_range, seq_len = spect_dim
-        model = transformer.make_model(input_dim).to(device)
+        model = transformer.make_model(input_dim,
+                num_sources=args.num_sources).to(device)
     else:
         model = models.Baseline(
                 input_dim, 
@@ -128,10 +130,10 @@ def main():
             batch_size=args.batch_size,
             shuffle=True)
 
-    testset = dt.SignalDataset(root_dir=test_dir, transform=transform)
-    testloader = torch.utils.data.DataLoader(
-            testset, 
-            batch_size=args.batch_size)
+    # testset = dt.SignalDataset(root_dir=test_dir, transform=transform)
+    # testloader = torch.utils.data.DataLoader(
+    #         testset, 
+    #         batch_size=args.batch_size)
 
     print('done!')
     # customized loss function
@@ -152,7 +154,7 @@ def main():
     # for early stopping
     # curr_loss = 10000
     # prev_model = None
-
+    
     print('Start training...')
     for epoch in range(NUM_EPOCHS):
         train_loss = 0.0
@@ -162,36 +164,40 @@ def main():
             optimizer.zero_grad()
             
             loss = run_epoch(info, model, args.model, args.num_sources,
-                    input_dim, device, criterion) 
+                    input_dim, device, args.learn_mask, criterion) 
             train_loss += loss
             loss.backward()
             optimizer.step()
 
-        with torch.no_grad():
-            for test_data in testloader:
-                test_loss += run_epoch(test_data, model, args.model,
-                        args.num_sources, input_dim, device, criterion)
+        # with torch.no_grad():
+        #     for test_data in testloader:
+        #         test_loss += run_epoch(test_data, model, args.model, 
+        #                 args.num_sources, input_dim, device, args.learn_mask,
+        #                 criterion)
 
         # log loss in graph
         legend_train = 'train loss'
-        legend_test = 'validation loss'
+        # legend_test = 'validation loss'
         avg_loss = train_loss / len(dataset)
-        avg_test_loss = test_loss / len(testset)
+        # avg_test_loss = test_loss / len(testset)
 
-        if epoch % 49 == 0:
-            model_path = model_path_prefix + '_checkpoint_{}_{}_{}\
-                    .pth'.format(args.metric, args.job_id, epoch)
+        if epoch == 0 or epoch % 50 == 0:
+            model_path = model_path_prefix + '_checkpoint_{}_{}_{}({}).pth'.format(
+                    args.metric, args.dataset, args.job_id, epoch)
             torch.save(model.state_dict(), model_path)
             # curr_loss = avg_test_loss
 
-        print('epoch %d, train loss: %.3f, val loss: %.3f' % \
-                (epoch + 1, avg_loss, avg_test_loss))
+        # print('epoch %d, train loss: %.3f, val loss: %.3f' % \
+        #         (epoch + 1, avg_loss, avg_test_loss))
 
-        writer.add_scalars('data/{}_loss_{}_{}'.format(args.model,
-            args.metric, args.job_id),
+        print('epoch %d, train loss: %.3f' % \
+                (epoch + 1, avg_loss))
+
+        writer.add_scalars('data/{}_loss_{}_{}({})'.format(args.model,
+            args.metric, args.dataset, args.job_id),
             {
                legend_train: avg_loss,
-               legend_test: avg_test_loss,
+               # legend_test: avg_test_loss,
             }, epoch)
 
     print("Finished training!")

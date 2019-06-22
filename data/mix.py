@@ -9,7 +9,7 @@ import numpy as np
 import scipy.io.wavfile
 import scipy.signal
 from pydub import AudioSegment
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 # DATA_DIRECTORY = "./raw/"
 # NUM_CLASSES = 100
@@ -386,7 +386,7 @@ def main():
             args.aggregate_duration,
             args.ground_truth_durations)
     
-    for i in tqdm(range(args.num_examples), ncols=100):
+    for i in tqdm(range(args.num_examples)):
 
         # filename and source class of the components in the aggregate
         metadata = []
