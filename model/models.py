@@ -137,7 +137,7 @@ class MSELoss(nn.Module):
         bs = predictions.size()[0]
         dists = self._calc_dists(predictions, ground_truths)
 
-        loss = torch.sum(dists) / bs
+        loss = torch.sum(dists)
         
         return loss
 
@@ -182,7 +182,7 @@ class MinLoss(nn.Module):
         # get distance measure (bs * num_sources)
         dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
         
-        loss = torch.sum(dists) / bs
+        loss = torch.sum(dists)
         
         return loss
 

@@ -11,29 +11,38 @@ import scipy.signal
 from pydub import AudioSegment
 from tqdm.auto import tqdm
 
-# DATA_DIRECTORY = "./raw/"
-# NUM_CLASSES = 100
-# CLASS_MAX_SIZE = 17
 
 SILENT = True 
 SEC_LEN = 1000
+MIN_LEN = 300  # shortest clip is 300ms
+COMPRESS_FACTOR = 2
+WINDOW_SIZE = 256
+OVERLAP_LEN = WINDOW_SIZE // 4
+CATEGORY_CAPACITY = 60  # the category with least number of files has 59 files
+TRAIN_TEST_SPLIT = 45  # first 45 files for train, the rest for test
+CATEGORY_COUNT = 42  # number of distinct categories available
 
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='Data generator for audio \
         separation dataset')
-    # parser.add_argument('--id', type=int)
+    # arguments 
     parser.add_argument('--raw_data_dir', type=str, required=True)
+    parser.add_argument('--metadata_path', type=str, required=True)
     parser.add_argument('--num_sources', type=int, default=3)
     parser.add_argument('--aggregate_duration', type=int, required=True)
     parser.add_argument('--num_examples', type=int, required=True)
     parser.add_argument('--dataset_dir', type=str, required=True)
-
-    # optional arguments
-    parser.add_argument('--selected_classes', nargs='*')
-    parser.add_argument('--selection_range', type=int, default=1)
-    # parser.add_argument('--wav_ids', nargs='*')
     parser.add_argument('--ground_truth_durations', type=float, nargs='*')
+    parser.add_argument('--window_size', type=int, default=WINDOW_SIZE)
+    parser.add_argument('--overlap_len', type=int, default=OVERLAP_LEN)
+
+    # options
+    parser.add_argument("--test_dataset", dest="dataset_type", const="test", 
+            action="store_const", default="train")
+    # optional arguments
+    # parser.add_argument('--selection_range', type=int, default=1)
+    # parser.add_argument('--wav_ids', nargs='*')
 
     return parser.parse_args()
 
@@ -64,6 +73,16 @@ def get_pathname(class_name, wav_id):
     return pathname
 
 
+def select_classes():
+    selected = []
+    while len(selected) < self.num_sources:
+        i = random.randint(0, len(all_classes) - 1)
+        path = + all_classes[i]
+        if (i not in selected) and (not is_empty(path)):
+            selected.append(i)
+    self.selected_classes = selected
+
+
 class Mixer():
     '''Mixer creates combinations of sound files.
 
@@ -81,11 +100,14 @@ class Mixer():
 
     '''
 
-    def __init__(self, num_sources, aggregate_duration, ground_truth_durations):
+    def __init__(self, num_sources, aggregate_duration,
+            ground_truth_durations, window_size, overlap_len):
         self.num_sources = num_sources
         self.agg_dur = aggregate_duration
         self.gt_durations = ground_truth_durations
-
+        
+        self.window_size = window_size
+        self.overlap_len = overlap_len
         self.reset()
 
     # PUBLIC METHODS
@@ -107,10 +129,10 @@ class Mixer():
         """
 
         # fill self.intervals
-        self._generate_intervals()
+        # self._generate_intervals()
 
         # fill self.ground_truths
-        assert(len(self.wav_files) == len(self.gt_durations))
+        # assert(len(self.wav_files) == len(self.gt_durations))
         self._create_ground_truths()
 
         # fill self.agregate
@@ -133,8 +155,7 @@ class Mixer():
         '''
         # self._save_metadata(out_name, out_path, all_classes)
         self._save_media(dataset_dir, metadata, i)
-        # self._save_config(out_name, out_path)
-
+        # self._save_config(out_name, out_path) 
     # PRIVATE METHODS
 
     def _save_metadata(self, dataset_dir, metadata):
@@ -174,10 +195,14 @@ class Mixer():
         # sr = w.frame_rate
         # data = np.frombuffer(w.raw_data, dtype=np.int8)[0::2]
 
-        sr, data = scipy.io.wavfile.read(wav_path)
-        _, _, spect_raw = scipy.signal.stft(data, fs=sr, boundary='zeros',
-                padded=True, nfft=256)
+        _, data = scipy.io.wavfile.read(wav_path)
+        sr, data = self._compress(data)
 
+        _, _, spect_raw = scipy.signal.stft(
+                data,
+                fs=sr,
+                nperseg=self.window_size,
+                noverlap=self.overlap_len)
         nrows, ncols = spect_raw.shape
 
         # 2 channels
@@ -254,43 +279,33 @@ class Mixer():
 
     #     log("saved!")
 
-    # def _select_classes(self, all_classes):
-    #     selected = []
-    #     while len(selected) < self.num_sources:
-    #         i = random.randint(0, len(all_classes) - 1)
-    #         path = DATA_DIRECTORY + all_classes[i]
-    #         if (i not in selected) and (not is_empty(path)):
-    #             selected.append(i)
-    #     self.selected_classes = selected
+    # def _generate_intervals(self):
+    #     """Get the intervals where each wav appear in the combination
 
-    def _generate_intervals(self):
-        """Get the intervals where each wav appear in the combination
+    #     First get the duration of each source, then randomize the interval
+    #     where each source appear in the mixture.
+    #     """
 
-        First get the duration of each source, then randomize the interval
-        where each source appear in the mixture.
-        """
+    #     n_frames = self.agg_dur * SEC_LEN
+    #     durations = self.gt_durations
 
-        n_frames = self.agg_dur * SEC_LEN
-        durations = self.gt_durations
+    #     if durations is None:
+    #         # randomize durations for each source
+    #         dur_lo = SEC_LEN  # one sec
+    #         dur_hi = n_frames
+    #         length = self.num_sources
+    #         durations = [random.randint(dur_lo, dur_hi) for i in range(length)]
 
-        if durations is None:
-            # randomize durations for each source
-            dur_lo = SEC_LEN  # one sec
-            dur_hi = n_frames
-            length = self.num_sources
-            durations = [random.randint(dur_lo, dur_hi) for i in range(length)]
+    #     intervals = []
+    #     for duration_in_sec in durations:
+    #         duration = duration_in_sec * SEC_LEN
+    #         start_lo = 0
+    #         start_hi = n_frames - duration
+    #         start = random.randint(start_lo, start_hi)
+    #         end = start + duration
+    #         intervals.append((start, end))
 
-        intervals = []
-        for duration_in_sec in durations:
-            duration = duration_in_sec * SEC_LEN
-            start_lo = 0
-            start_hi = n_frames - duration
-            start = random.randint(start_lo, start_hi)
-            end = start + duration
-            intervals.append((start, end))
-
-        self.intervals = intervals
-        assert(len(self.intervals) == len(self.wav_files))
+    #     self.intervals = intervals
 
     # def _get_wav_files(self, all_classes):
     #     # if specific sound clip IDs are not given
@@ -320,27 +335,47 @@ class Mixer():
     #             self.wav_files.append(wav_file)
 
     def _create_ground_truths(self):
-        '''Based on intervals, crop wav files and store them as ground truths
-
-        '''
+        "wav_files --> segments within mixture"
         n_frames = self.agg_dur * SEC_LEN
         ground_truths = []
 
-        for i, interval in enumerate(self.intervals):
-            wav = self.wav_files[i]
-            start, end = interval
+#         for i, interval in enumerate(self.intervals):
+#             wav = self.wav_files[i]
+#             start, end = interval
+#             pad_before = AudioSegment.silent(start)
+#             pad_after = AudioSegment.silent(n_frames - end)
+#             dur = int(end - start)
+#             wav = wav[:dur]
+
+#             ground_truth = pad_before + wav + pad_after
+#             # set to mono
+#             # ground_truth = ground_truth.set_channels(1)
+#             ground_truths.append(ground_truth)
+
+        for i, wav in enumerate(self.wav_files):
+            if self.gt_durations is None:
+                duration = min(len(wav), random.randint(MIN_LEN,
+                    self.agg_dur * SEC_LEN))
+            else:
+                duration = min(len(wav), self.gt_durations[i] * SEC_LEN)
+
+            start_lo = 0
+            start_hi = n_frames - duration
+            start = random.randint(start_lo, start_hi)
+            end = start + duration
+            wav = wav[:duration]
             pad_before = AudioSegment.silent(start)
+        # select waves from each class
+        # for src in args.selected_classes:
             pad_after = AudioSegment.silent(n_frames - end)
-            dur = int(end - start)
-            wav = wav[:dur]
 
             ground_truth = pad_before + wav + pad_after
-            # set to mono
-            ground_truth = ground_truth.set_channels(1)
+            assert(len(ground_truth) == n_frames)
             ground_truths.append(ground_truth)
 
         self.ground_truths = ground_truths
-
+        assert(len(self.ground_truths) == len(self.wav_files))
+            
     def _overlay_clips(self):
         aggregate = None
         for i, clip in enumerate(self.ground_truths):
@@ -349,10 +384,14 @@ class Mixer():
             else:
                 aggregate = aggregate.overlay(clip)
 
-        aggregate = aggregate.set_channels(1)
-
         self.aggregate = aggregate
 
+    def _compress(self, data):
+        "make subsequent spectrogram space-efficient"
+        tgt_len = len(data) // COMPRESS_FACTOR 
+        data_resamp = scipy.signal.resample(data, tgt_len)
+        sr_resamp = tgt_len // self.agg_dur 
+        return sr_resamp, data_resamp
 
 def create_dir(outdir):
     """creates directory if it does not exist"""
@@ -369,22 +408,75 @@ def create_dir(outdir):
 #     all_classes = [name for name in os.listdir(path)]
 #     return all_classes
 
-def get_filenames(raw_data_dir, classes):
-    all_classes = {}
-    for src in classes:
-        with open(raw_data_dir + '/meta/{}.txt'.format(src), 'r') as f:
-            all_classes[src] = f.readlines()
-    return all_classes
+def get_filename(metadata_path, category, file_id):
+    all_files = []
+    with open(metadata_path, newline='') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[1].strip() == category.strip() and row[2] == "1":
+                all_files.append(row[0])
+
+    return all_files[file_id] 
 
 
+def get_categories(metadata_path):
+    all_categories = set() 
+    excluded = [
+            "Bass_drum",
+            "Burping_or_eructation",
+            "Bus",
+            "Cello",
+            "Chime",
+            "Double_bass",
+            "Drawer_open_or_close",
+            "Fireworks",
+            "Fart",
+            "Hi-hat",
+            "Gong",
+            "Glockenspiel",
+            "Harmonica", 
+            "Microwave_oven",
+            "Scissors",
+            "Squeak",
+            "Telephone",
+            "label"]
+    with open(metadata_path, newline='') as f:
+        reader = csv.reader(f)
+        row_count = 0
+        for row in reader:
+            if row[1] not in excluded:
+                all_categories.add(row[1])
+        assert(len(all_categories) + len(excluded) - 1 == CATEGORY_COUNT)
+    return list(all_categories)
+
+
+def get_filename(metadata_path, category, file_id):
+    all_files = []
+    with open(metadata_path, newline='') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[1].strip() == category.strip() and row[2] == "1":
+                all_files.append(row[0])
+    
+    return all_files[file_id] 
+
+# TODO: fix get_filenames function
 def main():
     args = get_arguments()
-    all_filenames = get_filenames(args.raw_data_dir, args.selected_classes)
+    
+    # if not args.selected_classes:
+        # select waves from each class
+        # for src in args.selected_classes:
+    #     args.selected_classes = select_classes()
+    # all_filenames = get_filenames(args.raw_data_dir, args.selected_classes)
 
+    all_categories = get_categories(args.metadata_path) 
     mixer = Mixer(
             args.num_sources,
             args.aggregate_duration,
-            args.ground_truth_durations)
+            args.ground_truth_durations,
+            args.window_size,
+            args.overlap_len)
     
     for i in tqdm(range(args.num_examples)):
 
@@ -392,26 +484,51 @@ def main():
         metadata = []
 
         # select waves from each class
-        for src in args.selected_classes:
-            while True:
-                if args.selection_range == -1:
-                    wav_id = random.randint(0, len(all_filenames[src]))
-                else:
-                    wav_id = random.randint(0, args.selection_range - 1)
-                filename = all_filenames[src][wav_id].strip()
-                wav_path = os.path.join(args.raw_data_dir, filename)
-                wav_file = AudioSegment.from_wav(wav_path)
-                if len(wav_file) >= args.aggregate_duration * SEC_LEN:
-                    break
-            metadata.append((filename, src))
+        # for src in args.selected_classes:
+        #     while True:
+        #         if args.selection_range == -1:
+        #             wav_id = random.randint(0, len(all_filenames[src]))
+        #         else:
+        #             wav_id = random.randint(0, args.selection_range - 1)
+        #         filename = all_filenames[src][wav_id].strip()
+        #         wav_path = os.path.join(args.raw_data_dir, filename)
+        #         wav_file = AudioSegment.from_wav(wav_path)
+        #         if len(wav_file) >= args.aggregate_duration * SEC_LEN:
+        #             break
+        #     metadata.append((filename, src))
+        #     mixer.wav_files.append(wav_file)
+    
+        class_ids = random.sample(range(0, len(all_categories) - 1),
+                args.num_sources) 
+
+        # each source comes from a different category
+        for class_id in class_ids: 
+            # choose a file within chosen category
+            # while True:
+            if args.dataset_type == "train":
+                file_id = random.randint(0, TRAIN_TEST_SPLIT - 1) 
+            else:
+                file_id = random.randint(TRAIN_TEST_SPLIT,
+                        CATEGORY_CAPACITY - 1)
+
+            filename = get_filename(args.metadata_path, 
+                    all_categories[class_id], file_id)
+
+            wav_path = os.path.join(args.raw_data_dir, filename)
+            wav_file = AudioSegment.from_wav(wav_path)
+                # if len(wav_file) >= args.aggregate_duration * SEC_LEN:
+                #     break
+            metadata.append((filename, all_categories[class_id]))
+
             mixer.wav_files.append(wav_file)
-        
-        assert(len(mixer.wav_files) == len(args.selected_classes))
-        # print(args.selected_classes)
+
+        # assert(len(mixer.wav_files) == len(args.selected_classes))
+        # # print(args.selected_classes)
         # print(mixer.wav_files)
         # print(args.num_sources)
         assert(len(mixer.wav_files) == args.num_sources)
 
+        # FIXME: handle clips with short duration
         mixer.mix()
         mixer.export_results(args.dataset_dir, i, metadata)
         mixer.reset()

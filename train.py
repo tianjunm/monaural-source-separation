@@ -176,14 +176,15 @@ def main():
         #                 criterion)
 
         # log loss in graph
-        legend_train = 'train loss'
+        legend_train = 'train_{}_{}_{}({})'.format(args.model, args.dataset,
+                args.criterion, args.job_id)
         # legend_test = 'validation loss'
         avg_loss = train_loss / len(dataset)
         # avg_test_loss = test_loss / len(testset)
 
         if epoch == 0 or epoch % 50 == 0:
-            model_path = model_path_prefix + '_checkpoint_{}_{}_{}({}).pth'.format(
-                    args.metric, args.dataset, args.job_id, epoch)
+            model_path = model_path_prefix + '_checkpoint_{}_{}_{}_{}({}).pth'.format(
+                    args.dataset, args.criterion, args.metric, epoch, args.job_id)
             torch.save(model.state_dict(), model_path)
             # curr_loss = avg_test_loss
 
@@ -193,8 +194,9 @@ def main():
         print('epoch %d, train loss: %.3f' % \
                 (epoch + 1, avg_loss))
 
-        writer.add_scalars('data/{}_loss_{}_{}({})'.format(args.model,
-            args.metric, args.dataset, args.job_id),
+        # writer.add_scalars('data/{}_loss_{}_{}({})'.format(args.model,
+        #     args.metric, args.dataset, args.job_id),
+        writer.add_scalars('data/loss_{}'.format(args.metric),
             {
                legend_train: avg_loss,
                # legend_test: avg_test_loss,
