@@ -113,6 +113,7 @@ class Concat(object):
 
         result = np.zeros((nrows * 2, ncols))
 
+        # contatenating real and imaginary features together
         result[:nrows, :] = m[0][:, :ncols]
         result[nrows:, :] = m[1][:, :ncols]
 

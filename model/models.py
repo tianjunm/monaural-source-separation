@@ -114,7 +114,13 @@ def get_min_dist(preds, gts, device, metric):
             if metric == 'correlation':
                 dist = get_correlation(pred[b], gt_match[b])
             else:
-                dist = torch.norm(pred[b] - gt_match[b])
+                # "mean squared log error"
+                # dist = torch.norm(torch.log(pred[b] + 1) - \
+                #         torch.log(gt_match[b] + 1))
+                # dist = torch.norm(pred[b] - gt_match[b])
+                # dist = torch.log(torch.norm(pred[b] - gt_match[b]))
+                dist = torch.sum(pred[b] - gt_match[b])
+
             dists[b, src_id] = dist
 
     return dists
@@ -158,6 +164,10 @@ class MSELoss(nn.Module):
 
 
 class MinLoss(nn.Module):
+    pass
+
+
+class GreedyLoss(nn.Module):
     """Custom loss function #1
 
     Compare the distance from output with its closest ground truth.
@@ -165,7 +175,7 @@ class MinLoss(nn.Module):
     """
     def __init__(self, device, metric):
         # nn.Module.__init__(self)
-        super(MinLoss, self).__init__()
+        super(GreedyLoss, self).__init__()
         self.device = device
         self.metric = metric
 
@@ -182,7 +192,7 @@ class MinLoss(nn.Module):
         # get distance measure (bs * num_sources)
         dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
         
-        loss = torch.sum(dists)
+        loss = torch.norm(torch.sum(dists, 1))
         
         return loss
 
@@ -288,7 +298,7 @@ class B1(nn.Module):
         ys = self.fc1(F.relu(out))
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
-        return prediction, ys
+        return prediction
 
 
 class C1(nn.Module):
@@ -312,29 +322,32 @@ class C1(nn.Module):
         return prediction 
 
 
-class LookListen_Base(nn.Module):
+class LookToListenAudio(nn.Module):
     
-    def __init__(self, seq_len, input_dim, in_chan=2, chan=6, num_sources=NUM_SOURCES):
+    def __init__(self, seq_len, input_dim, in_chan=2, chan=6,
+            num_sources=NUM_SOURCES):
         super(LookListen_Base, self).__init__()
-        self.seq_len = seq_len
         self.input_dim = input_dim
+        self.seq_len = seq_len
         self.num_sources = num_sources
         self.in_chan = in_chan
         self.chan = chan
-        # self.kernel_dims = [(1, 7), (7, 1), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5)]
-        # self.dilation_dims = [(1, 1), (1, 1), (1, 1), (2, 1), (4, 1), (8, 1), (16, 1), (32, 1), (1, 1), (2, 2), (4, 4), (8, 8), (16, 16), (32, 32), (1, 1)]
 
-        self.kernel_dims = [(1, 7), (7, 1), (5, 5), (5, 5), (5, 5), (5, 5), (5, 5)]
-        self.dilation_dims = [(1, 1), (1, 1), (1, 1), (2, 2), (4, 4), (8, 8), (1, 1)]
+        self.kernel_dims = [(1, 7), (7, 1), (5, 5),
+                (5, 5), (5, 5), (5, 5), (5, 5)]
+        self.dilation_dims = [(1, 1), (1, 1), (1, 1),
+                (2, 2), (4, 4), (8, 8), (1, 1)]
         assert(len(self.kernel_dims) == len(self.dilation_dims))
         
         self.num_layers = len(self.kernel_dims)
         self.convs = nn.ModuleList(self._construct_convs())
         self.bns = nn.ModuleList(self._construct_bns())
 
-        self.blstm = nn.LSTM(8 * self.input_dim, hidden_size=200, batch_first=True, bidirectional=True)
+        self.blstm = nn.LSTM(8 * self.input_dim, hidden_size=200, 
+                batch_first=True, bidirectional=True)
         self.fc1 = nn.Linear(400, 600, bias=True)
-        self.fc2 = nn.Linear(600, self.input_dim * self.in_chan * self.num_sources, bias=True)
+        self.fc2 = nn.Linear(600, self.input_dim * self.in_chan * \
+                self.num_sources, bias=True)
 
     def forward(self, x):
         x_in = torch.cat(list(x.permute(1, 0, 2, 3)), -1)
@@ -343,7 +356,8 @@ class LookListen_Base(nn.Module):
             x = F.relu(bn(conv(x)))
         
         # audio-visual fusion 
-        x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)  # [bs, seq_len, out_chan * input_dim]
+        # [bs, seq_len, out_chan * input_dim]
+        x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)
         
         # bidirectional lstm
         x, _ = self.blstm(x)
@@ -353,7 +367,8 @@ class LookListen_Base(nn.Module):
         x = F.relu(self.fc1(x)) 
         x = F.relu(self.fc2(x)) 
 
-        x = x.view(-1, self.seq_len, self.num_sources, self.input_dim * self.in_chan)
+        x = x.view(-1, self.seq_len, self.num_sources,
+                self.input_dim * self.in_chan)
         prediction = x_in.unsqueeze(2) * x 
         return prediction, x
 
@@ -369,7 +384,8 @@ class LookListen_Base(nn.Module):
             cpad = dilation[1] * (kernel_size[1] - 1) // 2
             padding= [rpad, cpad]
 
-            conv = nn.Conv2d(in_chan, out_chan, kernel_size=kernel_size, dilation=dilation, padding=padding)
+            conv = nn.Conv2d(in_chan, out_chan, kernel_size=kernel_size,
+                    dilation=dilation, padding=padding)
             convs.append(conv)
         return convs
 

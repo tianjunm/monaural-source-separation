@@ -12,14 +12,14 @@ AGG_DUR=2
 # GT_DURS=(1.5 1.5)
 # RANGE=10
 NUM_TRAIN=$(( ${NUM_SOURCES} * 10000))
-NUM_TEST=5
+NUM_TEST=$(( ${NUM_SOURCES} * 1000))
 
 DATASET_ID="mixer/${NUM_SOURCES}-${NUM_TRAIN}-${AGG_DUR}"
 # RAW_DIR="/usr0/home/tianjunm/datasets/original/FSD_Kaggle/train"
 RAW_DIR="/media/bighdd7/tianjunm/datasets/original/FSDKaggle/train"
 METADATA_PATH="/media/bighdd7/tianjunm/multimodal-listener/data/metadata.csv"
 # DATASET_DIR="/usr0/home/tianjunm/datasets/processed/$DATASET_ID/test"
-DATASET_DIR="/media/bighdd7/tianjunm/datasets/processed/${DATASET_ID}/train"
+DATASET_DIR="/media/bighdd7/tianjunm/datasets/processed/${DATASET_ID}/test"
 
 # echo $NUM_TRAIN
 python mix.py \
@@ -27,5 +27,6 @@ python mix.py \
     --num_sources $NUM_SOURCES \
     --metadata_path $METADATA_PATH \
     --aggregate_duration $AGG_DUR \
-    --num_examples $NUM_TRAIN \
-    --dataset_dir $DATASET_DIR
+    --num_examples $NUM_TEST \
+    --dataset_dir $DATASET_DIR \
+    --test_dataset

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+# import skorch.NeuralNet
 import math, copy, time
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
@@ -80,7 +81,6 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
             nn.init.xavier_uniform_(p)
     return model
 
-
 # FIXME: strange CUDA issue: how to achieve efficient memory usage
 def greedy_decoder(model, src, seq_len, num_sources, input_dim, device, 
         learn_mask=True, start_symbol=1):
@@ -119,6 +119,8 @@ class Generator(nn.Module):
         #         seq_len + 1, self.n_sources, input_dim)[:, :-1]
         output = self.proj(x)[:, :s].view(-1, s, self.n_sources,
                 input_dim)
+        # print(x.shape)
+        # print(output.shape)
         # print(sep_mask.shape)
         if learn_mask:
             return agg[:, :s].unsqueeze(2) * output[:, :s] 
@@ -323,3 +325,14 @@ class Decoder(nn.Module):
             x = layer(x, memory, src_mask, tgt_mask)
         return self.norm(x)
 
+
+# "pytorch wrapper for skorch model object"
+# class Transformer(skorch.NeuralNet):
+    
+#     # def __init__(self, *args, **kwargs):
+#     #     super(kk
+#     def infer(slef, Xi, yi):
+#         pass
+
+#     def train_step(self, Xi, yi):
+#         pass

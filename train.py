@@ -2,11 +2,16 @@
 
 """
 import argparse
+import re
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from tensorboardX import SummaryWriter
 from model import models, transformer
 import model.dataset as dt
+from skorch import NeuralNetRegressor 
+from tqdm import tqdm
+
 
 # default parameters
 NUM_SOURCES = 2
@@ -39,6 +44,7 @@ def get_argument():
     parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR)
     parser.add_argument('--learn_mask', type=int, default=1)
     parser.add_argument('--dataset', type=str, required=True)
+    parser.add_argument('--pretrained_dir', type=str, default="")
     return parser.parse_args()
 
 
@@ -52,23 +58,30 @@ def get_device(gpu_id):
     return device
 
 
-def run_epoch(data, model, model_name, n_sources, input_dim, device, learn_mask, 
-        criterion):
+def run_epoch(data, model, model_name, n_sources, input_dim, device, 
+        learn_mask, criterion, generator=None):
     aggregate = data['aggregate'].to(device)
     if model_name == 'transformer':
         ground_truths_in = data['ground_truths_in'].to(device)
         ground_truths = data['ground_truths_gt'].to(device)
+
         mask_size = ground_truths_in.shape[1]
         subseq_mask = transformer.subsequent_mask(mask_size).to(device)
+#         agg_scatter = nn.parallel.scatter(aggregate, target_gpus=devices)
+#         gtin_scatter = nn.parallel.scatter(ground_truths_in,
+#                 target_gpus=devices)
+#         gt_scatter = nn.parallel.scatter(ground_truths, target_gpus=devices)
         out = model(aggregate, ground_truths_in, None, subseq_mask)
-        prediction = model.generator(aggregate, out, learn_mask=learn_mask)
+        prediction = generator(aggregate, out, learn_mask=learn_mask)
         loss = criterion(prediction, ground_truths)
     else:
         ground_truths = data['ground_truths'].to(device)
-        prediction, _ = model(aggregate)
+        # FIXME: only works with B1
+        prediction = model(aggregate)
         loss = criterion(prediction, ground_truths)
     
     return loss
+
 
 def main():
     args = get_argument()
@@ -115,15 +128,36 @@ def main():
     elif args.model == 'transformer':
         transform = dt.Concat(size=spect_dim, encdec=True)
         # freq_range, seq_len = spect_dim
-        model = transformer.make_model(input_dim,
+        # model = transformer.make_model(input_dim,
+        #         num_sources=args.num_sources).to(device)
+        model = transformer.make_model(
+                input_dim,
+                N=6,
+                h=8,
                 num_sources=args.num_sources).to(device)
+        # generator = nn.DataParallel(model.generator, device_ids=[0, 1, 2, 3])
+        # generator = model.generator.to(device)
+        # model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+        # model.to(device)
     else:
         model = models.Baseline(
                 input_dim, 
                 seq_len=spect_dim[1],
                 num_sources=args.num_sources).to(device)
 
-    "create dataset"
+    "continue from chechpoint if pretrained model is present"
+    if args.pretrained_dir:
+        model.load_state_dict(torch.load(args.pretrained_dir))
+   
+    "if pretrained model is present, continue from left off epoch"
+    try:
+        starting_epoch = int(re.search("_([0-9]+?)\(",
+            args.pretrained_dir).group(1))
+        print("Pretrained model loaded...")
+    except AttributeError:
+        starting_epoch = 0
+
+    "load dataset"
     dataset = dt.SignalDataset(root_dir=train_dir, transform=transform)
     dataloader = torch.utils.data.DataLoader(
             dataset, 
@@ -137,10 +171,13 @@ def main():
 
     print('done!')
     # customized loss function
-    if args.criterion == 'minloss':
+    if args.criterion == 'min':
         criterion = models.MinLoss(device, args.metric)
-    else: 
-        # TODO: currently unavailable due to dimension mismatch
+    elif args.criterion == 'greedy':
+        criterion = models.GreedyLoss(device, args.metric)
+        # criterion = nn.DataParallel(criterion)
+
+    else:
         criterion = models.MSELoss(device, args.metric)
 
     # FIXME: trying random configs for optimizers
@@ -154,17 +191,17 @@ def main():
     # for early stopping
     # curr_loss = 10000
     # prev_model = None
-    
+   
     print('Start training...')
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(starting_epoch, NUM_EPOCHS):
         train_loss = 0.0
         test_loss = 0.0 
-        for i, info in enumerate(dataloader):
+        for i, info in tqdm(enumerate(dataloader)):
             torch.cuda.empty_cache()
             optimizer.zero_grad()
             
             loss = run_epoch(info, model, args.model, args.num_sources,
-                    input_dim, device, args.learn_mask, criterion) 
+                    input_dim, device, args.learn_mask, criterion, generator) 
             train_loss += loss
             loss.backward()
             optimizer.step()
@@ -179,28 +216,30 @@ def main():
         legend_train = 'train_{}_{}_{}({})'.format(args.model, args.dataset,
                 args.criterion, args.job_id)
         # legend_test = 'validation loss'
-        avg_loss = train_loss / len(dataset)
+        "RMSE"
+        rmse_loss = torch.sqrt(train_loss / len(dataset))
         # avg_test_loss = test_loss / len(testset)
 
-        if epoch == 0 or epoch % 50 == 0:
-            model_path = model_path_prefix + '_checkpoint_{}_{}_{}_{}({}).pth'.format(
-                    args.dataset, args.criterion, args.metric, epoch, args.job_id)
-            torch.save(model.state_dict(), model_path)
+        # if epoch == 0 or epoch % 50 == 0:
+        #     model_path = model_path_prefix + \
+        #             '_checkpoint_{}_{}_{}_{}({}).pth'.format(args.dataset,
+        #                     args.criterion, args.metric, epoch, args.job_id)
+        #     torch.save(model.state_dict(), model_path)
             # curr_loss = avg_test_loss
 
         # print('epoch %d, train loss: %.3f, val loss: %.3f' % \
         #         (epoch + 1, avg_loss, avg_test_loss))
 
         print('epoch %d, train loss: %.3f' % \
-                (epoch + 1, avg_loss))
+                (epoch + 1, rmse_loss))
 
         # writer.add_scalars('data/{}_loss_{}_{}({})'.format(args.model,
         #     args.metric, args.dataset, args.job_id),
-        writer.add_scalars('data/loss_{}'.format(args.metric),
-            {
-               legend_train: avg_loss,
-               # legend_test: avg_test_loss,
-            }, epoch)
+        # writer.add_scalars('data/loss_{}'.format(args.metric),
+        #     {
+        #        legend_train: avg_loss,
+        #        # legend_test: avg_test_loss,
+        #     }, epoch)
 
     print("Finished training!")
     writer.close()

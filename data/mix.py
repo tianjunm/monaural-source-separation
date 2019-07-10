@@ -5,6 +5,7 @@ import random
 import os
 import errno
 import csv
+import json
 import numpy as np
 import scipy.io.wavfile
 import scipy.signal
@@ -21,6 +22,7 @@ OVERLAP_LEN = WINDOW_SIZE // 4
 CATEGORY_CAPACITY = 60  # the category with least number of files has 59 files
 TRAIN_TEST_SPLIT = 45  # first 45 files for train, the rest for test
 CATEGORY_COUNT = 42  # number of distinct categories available
+MAX_SIZE = 1e9
 
 
 def get_arguments():
@@ -155,7 +157,9 @@ class Mixer():
         '''
         # self._save_metadata(out_name, out_path, all_classes)
         self._save_media(dataset_dir, metadata, i)
-        # self._save_config(out_name, out_path) 
+        # extra return step for saving information regarding shape of spect
+        return self.spect_shape
+
     # PRIVATE METHODS
 
     def _save_metadata(self, dataset_dir, metadata):
@@ -227,12 +231,18 @@ class Mixer():
         # spect
         spect_path = output_dir + filename 
         spect = self._get_spect(audio_path)
+
+        # saving spect shape information for pytorch dataloader 
+        # e.g. [2, 129, 231] - [nchan, freq_range, seq_len] 
+        _, fr, sl = spect.shape
+        self.spect_shape = (fr, sl)
+
         create_dir(spect_path)
         np.save(spect_path, spect)
 
     def _save_media(self, dataset_dir, metadata, i):
         '''
-        :param dataset_dir: root directory of the entire dataset
+s        :param dataset_dir: root directory of the entire dataset
         :param i: the ith generated sample in this dataset
         '''
 
@@ -246,7 +256,7 @@ class Mixer():
         self._save_wav_spect(media_dir, self.aggregate, 'agg')
         log("saved!")
 
-        # ground truths
+        # ground truthss
         log("Saving ground truths...", newline=True)
         gt_dir = media_dir + 'gt/'
         for i in range(len(self.ground_truths)):
@@ -254,7 +264,9 @@ class Mixer():
             self._save_wav_spect(gt_dir, gt, str(i))
         log("saved!")
 
-    # def _save_config(self, out_name, out_path):
+    # def _save_spect_shape(self, dataset_dir, spect_shape):
+    #     spect_shape = {}
+    #     spect_shape['freq_range'] = min(
     #     """
     #     Space-separated argument list corresponding to:
     #     --num_sources, --duration, --selected_classes, --wav_ids,
@@ -460,7 +472,12 @@ def get_filename(metadata_path, category, file_id):
     
     return all_files[file_id] 
 
-# TODO: fix get_filenames function
+
+def export_spect_shape(dataset_dir, spect_shape):
+    with open("data_spec.json", "w") as f:
+        json.dump(spect_shape, f) 
+
+
 def main():
     args = get_arguments()
     
@@ -478,6 +495,10 @@ def main():
             args.window_size,
             args.overlap_len)
     
+    spect_shape = {}
+    spect_shape['freq_range'] = MAX_SIZE
+    spect_shape['seq_len'] = MAX_SIZE
+
     for i in tqdm(range(args.num_examples)):
 
         # filename and source class of the components in the aggregate
@@ -530,8 +551,15 @@ def main():
 
         # FIXME: handle clips with short duration
         mixer.mix()
-        mixer.export_results(args.dataset_dir, i, metadata)
+        fr, sl = mixer.export_results(args.dataset_dir, i, metadata)
         mixer.reset()
+        
+        # handling potentially differing output shape of STFT
+        # using the smallest spect dimension as the unified dimension for all
+        spect_shape['freq_range'] = min(fr, spect_shape['freq_range'])
+        spect_shape['seq_len'] = min(sl, spect_shape['seq_len'])
+
+    export_spect_shape(args.dataset_dir, spect_shape) 
 
 
 if __name__ == "__main__":
