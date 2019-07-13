@@ -22,9 +22,9 @@ import model.transformer as custom_transformer
 # default parameters
 NUM_SOURCES = 2
 MAX_EPOCHS = 500 
-LOG_FREQ = 50
+LOG_FREQ = 10
 CHECKPOINT_FREQ = 50
-ROOT_DIR = "/media/bighdd7/tianjunm/"
+ROOT_DIR = "/home/ubuntu/"
 RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "multimodal-listener/results")
 DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
 TBLOG_PATH = os.path.join(ROOT_DIR, "multimodal-listener/tb_logs")
@@ -216,18 +216,18 @@ class Trainer():
            
             if (batch_idx + 1) % (len(self.dataloader['train']) // \
                     LOG_FREQ) == 0:
-                logging.info("epoch {}, [{}/{}] train loss: {}".format(
+                logging.info("epoch {}, [{}/{}] train loss: {:.2f}".format(
                     epoch + 1,
                     batch_idx * self.config['batch_size'], 
                     self.task[2:-2],
                     loss.item()))
 
-    def validate(self):
+    def validate(self, batch):
         running_loss = 0.0
         iters = 0
         self.model.eval()
         with torch.no_grad():
-            for batch_idx, batch in self.dataloader['test']:
+            for batch_idx, batch in enumerate(self.dataloader['test']):
                 iters += 1
                 loss = self._compute_loss(batch)
                 running_loss += loss.item()

@@ -192,7 +192,7 @@ class GreedyLoss(nn.Module):
         # get distance measure (bs * num_sources)
         dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
         
-        loss = torch.norm(torch.sum(dists, 1))
+        loss = torch.log(torch.sqrt((torch.sum(dists, 1) ** 2).mean()))
         
         return loss
 

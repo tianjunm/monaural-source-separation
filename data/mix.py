@@ -474,7 +474,8 @@ def get_filename(metadata_path, category, file_id):
 
 
 def export_spect_shape(dataset_dir, spect_shape):
-    with open("data_spec.json", "w") as f:
+    path = os.path.join(dataset_dir, "data_spec.json")
+    with open(path, "w") as f:
         json.dump(spect_shape, f) 
 
 
