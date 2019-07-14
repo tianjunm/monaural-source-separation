@@ -2,6 +2,7 @@
 
 """
 import argparse
+import copy
 import csv
 import errno
 import json
@@ -23,20 +24,20 @@ import model.transformer as custom_transformer
 NUM_SOURCES = 2
 MAX_EPOCHS = 500 
 LOG_FREQ = 10
-CHECKPOINT_FREQ = 50
+CHECKPOINT_FREQ = 1 
 ROOT_DIR = "/home/ubuntu/"
 RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "multimodal-listener/results")
 DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
 TBLOG_PATH = os.path.join(ROOT_DIR, "multimodal-listener/tb_logs")
 
 LOSS_MAX = 1e9
-MAX_EVAL = 5
-NUM_TRIALS = 3
+MAX_EVAL = 10 
+NUM_TRIALS = 1
 
 fieldnames = ['model', 'metric', 'task', 'loss_fn', 'trial',
     'max_epoch', 'lr', 'optim', 'batch_size', 'dropout',
     'momentum', 'beta1', 'beta2', 'epsilon', 'hidden_size', 'in_chan',
-    'chan', 'N', 'h', 'd_model', 'd_ffd', 'best_val_loss',
+    'chan', 'N', 'h', 'd_model', 'd_ff', 'best_val_loss',
     'best_model_path']
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
@@ -77,7 +78,7 @@ def make_dir(path):
 def save_configs(time_info, all_configs, task, metric, model_type):
     path = os.path.abspath(os.path.join(
             RESULT_PATH_PREFIX,
-            "{}-{}-{}-{}/".format(task, metric, model_type, time_info),
+            "{}_{}_{}_{}/".format(task, metric, model_type, time_info),
             "config.tar"))
     make_dir(path)
     
@@ -88,35 +89,37 @@ def save_configs(time_info, all_configs, task, metric, model_type):
 def fetch_progress(task, metric, model_type, time_info):
     # e.g. results/2s-euclidean-LSTM-190712/
     setup_path = os.path.join(RESULT_PATH_PREFIX,
-        "{}-{}-{}-{}".format(task, metric, model_type, time_info))
+        "{}_{}_{}_{}".format(task, metric, model_type, time_info))
   
     all_configs = torch.load(os.path.join(setup_path,
-        "configs.tar"))['all_configs']
+        "config.tar"))['all_configs']
 
-    # determine which config to pick up
+    # XXX: determine which config to pick up
     config_progress = -1    
     for name in os.listdir(setup_path):
-        if os.path.isdir(os.path.join(setup_path, name)):
+        if "config" in name and os.path.isdir(os.path.join(setup_path, name)):
             config_progress += 1
     
     assert(config_progress >= 0)
 
     # determine which trial to pick up
-    trial_progress = -1
-    config_path = os.path.join(setup_path, "config_{}".format(config_progress))
-    for name in os.listdir(config_path):
-        if os.path.isdir(os.path.join(config_path, name)):
-            trial_progress +=1
+    # XXX: ignoring trial information
+    # trial_progress = -1
+    # config_path = os.path.join(setup_path, "config_{}".format(config_progress))
+    # for name in os.listdir(config_path):
+    #     if os.path.isdir(os.path.join(config_path, name)):
+    #         trial_progress +=1
 
-    assert(trial_progress >= 0)
+    # assert(trial_progress >= 0)
          
     # results/setup_name/config_n/trial{}/snapshots/checkpoint.tar
     rec_info = {
             'all_configs': all_configs[config_progress:],
-            'start_trial': trial_progress,
+            # 'start_trial': trial_progress,
             'checkpoint_path': os.path.join(
                 setup_path,
-                "trial_{}".format(start_trial),
+                "config_{}".format(config_progress),
+                # "trial_{}".format(start_trial),
                 "snapshots/checkpoint.tar")
             }
     
@@ -150,53 +153,57 @@ class Trainer():
         """train the specified model for [max_epoch] epochs"""
         logging.debug(self.device)
         best_model = None
+        losses = {}
+        losses['curr_best_loss'] = best_val_loss
+        # self.config['max_epoch'] = 50
         for epoch in range(self.start_epoch, self.config['max_epoch']):
             end = time.time()
             train_loss = self.train(epoch)
             val_loss = self.validate(epoch)
            
-            losses = {}
-            losses['train'] = train_loss.item()
-            losses['val'] = val_loss.item()
+            losses['train'] = train_loss
+            losses['val'] = val_loss
 
             # save model with the best performance
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
+            if val_loss < losses['curr_best_loss']:
                 best_model = copy.deepcopy(self.model)
                 # save best loss of current unfinished trial
-                losses['curr_best_loss'] = best_val_loss
+                losses['curr_best_loss'] = val_loss
             
-            logging.info("epoch {}, [{}/{}] train loss: {}, "
-                    "val loss: {}, duration: {}s".format(
+            logging.info("epoch {}, [{}/{}] train loss: {:.2f}, "
+                    "val loss: {:.2f}, duration: {:.0f}s".format(
                 epoch + 1,
-                len(self.dataloader['train']),
-                len(self.dataloader['train']),
+                self.task[2:-2], 
+                self.task[2:-2], 
                 losses['train'],
                 losses['val'],
                 time.time() - end))
 
-            self._log_tb(losses, epoch)
+            self._log_tb(losses, epoch, trial_id)
 
-            if epoch + 1 == CHECKPOINT_FREQ:
+            if (epoch + 1) % CHECKPOINT_FREQ == 0:
                 logging.info("saving snapshot...")
-                self._save_model(trial_id, losses)
+                self._save_model(epoch, losses, trial_id=trial_id)
                 if best_model is not None:
-                    best_path = self._save_model(trial_id, losses, best_model)
+                    logging.info("saving best model...")
+                    best_path = self._save_model(epoch, losses, 
+                            best_model=best_model, trial_id=trial_id)
                 logging.info("finished saving snapshots")
 
 
         # TODO: use google api
-        self._log_sheet(trial_id, best_val_loss, best_path)
+        self._log_sheet(trial_id, losses['curr_best_loss'], best_path)
 
     def _log_sheet(self, trial_id, best_val_loss, best_path):
-
+        csv_path = os.path.join(RESULT_PATH_PREFIX, "results.csv")
         with open(csv_path, 'a+') as csvfile:
             csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             content = copy.deepcopy(self.config)
+            del content['id']
             content['model'] = self.model_type
             content['metric'] = self.metric
             content['task'] = self.task
-            content['trial'] = trial_id 
+            content['trial'] = trial_id + 1
             content['best_val_loss'] = best_val_loss
             content['best_model_path'] = best_path 
             csv_writer.writerow(content)
@@ -216,11 +223,12 @@ class Trainer():
            
             if (batch_idx + 1) % (len(self.dataloader['train']) // \
                     LOG_FREQ) == 0:
-                logging.info("epoch {}, [{}/{}] train loss: {:.2f}".format(
+                logging.info("epoch {}, [{:5d}/{}] train loss: {:.2f}".format(
                     epoch + 1,
                     batch_idx * self.config['batch_size'], 
                     self.task[2:-2],
                     loss.item()))
+        return loss.item()
 
     def validate(self, batch):
         running_loss = 0.0
@@ -248,34 +256,34 @@ class Trainer():
             loss = self.criterion(prediction, ground_truths)
         else:
             ground_truths = batch['ground_truths'].to(self.device)
-            # FIXME: only works with B1
             prediction = self.model(aggregate)
             loss = self.criterion(prediction, ground_truths)
         
         return loss
 
-    def _log_tb(self):
-        legend_prefix = "{}-{}-{}-{}".format(
+    def _log_tb(self, losses, epoch, trial_id):
+        legend_prefix = "{}_{}_{}_{}".format(
                 self.model_type,
                 self.task,
                 self.config['id'],
                 trial_id)
-        tb_writer.add_scalars("data/{}/loss".format(self.metric),
+        self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
                 {
                     "{}_train".format(legend_prefix): losses['train'],
                     "{}_val".format(legend_prefix): losses['val'],
                 }, epoch)
 
-    def _save_model(self, trial_id, losses, best_model=None):
+    # XXX: currently ignoring trial information
+    def _save_model(self, epoch, losses, best_model=None, trial_id=0):
         model_name = "checkpoint.tar" if best_model is None else "best.tar"
-        # e.g. results/setup_name/config_0/trial_2/snapshots/checkpoint.tar
-        # e.g. results/setup_name/config_0/trial_2/snapshots/best.tar
+        # e.g. results/setup_name/config_0/snapshots/checkpoint.tar
+        # e.g. results/setup_name/config_0/snapshots/best.tar
         model_path = os.path.join(
                 RESULT_PATH_PREFIX,
-                "{}-{}-{}-{}-{}".format(self.task, self.metric,
+                "{}_{}_{}_{}".format(self.task, self.metric,
                     self.model_type, self.time_info),
                 "config_{}".format(self.config['id']),
-                "trial_{}".format(trial_id),
+                # "trial_{}".format(trial_id),
                 "snapshots",
                 model_name)
 
@@ -393,12 +401,12 @@ class Trainer():
         # load checkpoint if resuming operations
         if self.rec_info is not None:
             # given trial, pick up model snapshot  
-            logging.info("loading checkpoint from config {}".format(
+            logging.info("loading checkpoint from configuration # {}".format(
                 self.config['id']))
             checkpoint = torch.load(self.rec_info['checkpoint_path'])
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optim.load_state_dict(checkpoint['optim_state_dict'])
-            self.start_epoch = checkpoint['epoch']
+            self.start_epoch = checkpoint['epoch'] + 1
             self.curr_best_loss = checkpoint['curr_best_loss']
             logging.info("checkpoint loaded!")
 
@@ -407,13 +415,13 @@ def select_configs():
     all_configs = []
     max_eval = MAX_EVAL 
 
-    max_epochs = [400, 500, 700]
+    max_epochs = [300, 400, 500]
     lrs = [0.001, 0.005, 0.01]
-    optims = ['SGD', 'Adam']
+    optims = ['SGD', 'Adam', 'Adam']
     # TODO: implement Min
     # loss_fns = ['Greedy', 'Min']
     loss_fns = ['Greedy']
-    batch_sizes = [4, 16, 32, 64]
+    batch_sizes = [16, 64, 128]
     dropouts = [0.1, 0.3, 0.5]
     momentums = [0.0, 0.5, 0.9]
     beta1s = [0.9, 0.95, 0.99]
@@ -428,10 +436,10 @@ def select_configs():
     chans = [4, 16, 64]
 
     # for vanilla transformer
-    Ns = [3, 4, 5, 6]
-    hs = [2, 4, 8]
-    d_models = [256, 512, 1024]
-    d_ffs = [256, 512, 1024, 2048]
+    Ns = [2, 3, 4]
+    hs = [2, 4]
+    d_models = [64, 128, 256]
+    d_ffs = [64, 128, 256]
 
     all_params = {
         'max_epochs': max_epochs,
@@ -466,42 +474,46 @@ def main():
     args = get_argument()
     device = get_device(args.gpu_id)
     
-    time_info = time.strftime("%y%m%d", time.gmtime())
     # TODO: inter face to google sheets
     # record = Record()
    
     # csv_path = "/media/bighdd7/tianjunm/multimodal-listener/results"
-
-    csv_path = os.path.join(RESULT_PATH_PREFIX, "results.csv")
-    make_dir(csv_path)
-    with open(csv_path, "a+") as csvfile:
-        csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        csv_writer.writeheader()
 
     logging.info("GPU: {}, Task: {}, Metric: {}, Model: {}".format(device, 
         args.task, args.metric, args.model_type))
 
     if args.resume:
         logging.info("resuming from interrupted experiment...")
+        time_info = args.time
         # information for recovery
         rec_info = fetch_progress(args.task, args.metric, args.model_type,
-                args.time)
+                time_info)
         all_configs = rec_info['all_configs']
-        start_trial = rec_info['start_trial']
+        # start_trial = rec_info['start_trial']
         logging.info("found partial results")
     else:
         logging.info("initiating new experiment...")
+        time_info = time.strftime("%y%m%d", time.gmtime())
+
+        # csv_path = os.path.join(RESULT_PATH_PREFIX, "results.csv")
+        # make_dir(csv_path)
+        # with open(csv_path, "a+") as csvfile:
+        #     csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        #     csv_writer.writeheader()
+
         rec_info = None
         all_configs = select_configs()
-        start_trial = 0
+        # start_trial = 0
         save_configs(time_info, all_configs, args.task,
             args.metric, args.model_type)
         assert(len(all_configs) == MAX_EVAL) 
 
+    start_trial = 0
     # tensorboard writer
     tb_writer = tensorboard_writer(logdir=TBLOG_PATH)
     # hyperparameter search with random search 
     for config in all_configs:
+        logging.info("configuration #{}:".format(config['id']))
         logging.info(config)
         trainer = Trainer(args.task, args.metric, args.model_type, config,
                 device, tb_writer, time_info, rec_info)
@@ -520,7 +532,10 @@ def main():
                 # trainer.run(trial_id, record)
                 trainer.run(trial_id)
 
-            logging.info("trial {} finished!".format(trial_id))
+            logging.info("trial {} finished!".format(trial_id + 1))
+
+        # won't need to recover again after finishing recovery
+        rec_info = None
 
     logging.info("experiment done!")
     logging.info("all stats uploaded to {}".format(record.url))

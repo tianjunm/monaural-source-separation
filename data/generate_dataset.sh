@@ -5,7 +5,7 @@
 # CLASSES_5=("Acoustic_guitar" "Applause" "Saxophone" "Bark" "Cough")
 # CLASSES_7=("Acoustic_guitar" "Applause" "Saxophone" "Bark" "Cough" "Electric_piano" "Telephone")
 
-NUM_SOURCES=3
+NUM_SOURCES=5
 AGG_DUR=2
 # GT_DURS=(2.0 2.0 2.0 2.0 2.0 2.0 2.0)
 # GT_DURS=(0.5 0.5 0.5 0.5 0.5) 

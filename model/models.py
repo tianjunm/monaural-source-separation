@@ -108,18 +108,13 @@ def get_min_dist(preds, gts, device, metric):
     for b in range(bs):
         matches = all_matches[b]
         for src_id in range(n_sources):
-            pred = preds[:, :, src_id, :]
-            gt_match = gts[:, :, int(matches[src_id]), :]
+            pred = preds[b, :, src_id, :]
+            gt_match = gts[b, :, int(matches[src_id]), :]
             # recomputing required to keep track of grads
             if metric == 'correlation':
-                dist = get_correlation(pred[b], gt_match[b])
+                dist = get_correlation(pred, gt_match)
             else:
-                # "mean squared log error"
-                # dist = torch.norm(torch.log(pred[b] + 1) - \
-                #         torch.log(gt_match[b] + 1))
-                # dist = torch.norm(pred[b] - gt_match[b])
-                # dist = torch.log(torch.norm(pred[b] - gt_match[b]))
-                dist = torch.sum(pred[b] - gt_match[b])
+                dist = torch.norm(pred - gt_match)
 
             dists[b, src_id] = dist
 
@@ -326,7 +321,7 @@ class LookToListenAudio(nn.Module):
     
     def __init__(self, seq_len, input_dim, in_chan=2, chan=6,
             num_sources=NUM_SOURCES):
-        super(LookListen_Base, self).__init__()
+        super(LookToListenAudio, self).__init__()
         self.input_dim = input_dim
         self.seq_len = seq_len
         self.num_sources = num_sources
@@ -370,7 +365,7 @@ class LookToListenAudio(nn.Module):
         x = x.view(-1, self.seq_len, self.num_sources,
                 self.input_dim * self.in_chan)
         prediction = x_in.unsqueeze(2) * x 
-        return prediction, x
+        return prediction
 
     def _construct_convs(self):
         convs = []
