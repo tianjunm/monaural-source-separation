@@ -33,6 +33,7 @@ TBLOG_PATH = os.path.join(ROOT_DIR, "multimodal-listener/tb_logs")
 LOSS_MAX = 1e9
 MAX_EVAL = 10 
 NUM_TRIALS = 1
+TOLERANCE = 10  # for early stopping
 
 fieldnames = ['model', 'metric', 'task', 'loss_fn', 'trial',
     'max_epoch', 'lr', 'optim', 'batch_size', 'dropout',
@@ -150,13 +151,19 @@ class Trainer():
         self._load_checkpoint()
         
     def run(self, trial_id, best_val_loss=LOSS_MAX):
-        """train the specified model for [max_epoch] epochs"""
+        '''train the specified model for [max_epoch] epochs'''
         logging.debug(self.device)
+
+        es_counter = 0  # keeping track of early stopping
+        terminated = False
         best_model = None
         losses = {}
         losses['curr_best_loss'] = best_val_loss
         # self.config['max_epoch'] = 50
         for epoch in range(self.start_epoch, self.config['max_epoch']):
+            if terminated:
+                break
+
             end = time.time()
             train_loss = self.train(epoch)
             val_loss = self.validate(epoch)
@@ -166,28 +173,44 @@ class Trainer():
 
             # save model with the best performance
             if val_loss < losses['curr_best_loss']:
+                es_counter = 0
                 best_model = copy.deepcopy(self.model)
                 # save best loss of current unfinished trial
                 losses['curr_best_loss'] = val_loss
+            else:
+                es_counter += 1
+                if es_counter >= TOLERANCE:
+                    logging.info("val loss does not decrease for"
+                            "more than {} epochs, training will be"
+                            "terminated".format(TOLERANCE))
+                    terminated = True 
             
-            logging.info("epoch {}, [{}/{}] train loss: {:.2f}, "
-                    "val loss: {:.2f}, duration: {:.0f}s".format(
-                epoch + 1,
-                self.task[2:-2], 
-                self.task[2:-2], 
-                losses['train'],
-                losses['val'],
-                time.time() - end))
+            logging.info("{}_{}_{}: epoch {}, [{}/{}] train loss: {:.2f}, "
+                    "val loss: {:.2f}, duration: {:.0f}s"
+                    "(early stopping: {}/{})".format(
+                    self.model_type,
+                    self.task[0],
+                    self.metric,
+                    epoch + 1,
+                    self.task[2:-2], 
+                    self.task[2:-2], 
+                    losses['train'],
+                    losses['val'],
+                    time.time() - end,
+                    es_counter,
+                    TOLERANCE))
 
             self._log_tb(losses, epoch, trial_id)
 
             if (epoch + 1) % CHECKPOINT_FREQ == 0:
                 logging.info("saving snapshot...")
                 self._save_model(epoch, losses, trial_id=trial_id)
+                # save if best_model is updated
                 if best_model is not None:
                     logging.info("saving best model...")
                     best_path = self._save_model(epoch, losses, 
                             best_model=best_model, trial_id=trial_id)
+                    best_model = None  # refresh best model
                 logging.info("finished saving snapshots")
 
 
@@ -223,11 +246,15 @@ class Trainer():
            
             if (batch_idx + 1) % (len(self.dataloader['train']) // \
                     LOG_FREQ) == 0:
-                logging.info("epoch {}, [{:5d}/{}] train loss: {:.2f}".format(
-                    epoch + 1,
-                    batch_idx * self.config['batch_size'], 
-                    self.task[2:-2],
-                    loss.item()))
+                logging.info("{}_{}_{}: epoch {}, [{:5d}/{}] "
+                        "train loss: {:.2f}".format(
+                            self.model_type,
+                            self.task[0],
+                            self.metric,
+                            epoch + 1,
+                            batch_idx * self.config['batch_size'], 
+                            self.task[2:-2],
+                            loss.item()))
         return loss.item()
 
     def validate(self, batch):
