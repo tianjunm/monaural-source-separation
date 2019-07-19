@@ -11,7 +11,7 @@ BATCH_SIZE = 32
 
 # INPUT_DIM = 3
 NUM_SOURCES = 2
-SEQ_LEN = 173 
+SEQ_LEN = 173
 
 
 def get_orders(dists):
@@ -29,7 +29,7 @@ def get_orders(dists):
         # print(flattened.reshape(d, -1))
         # print(flattened.reshape(d, -1).astype(int))
         orders[batch, :, :] = flattened.reshape(d, -1)
-    
+
     return orders.astype(int)
 
 
@@ -37,7 +37,7 @@ def get_matches(orders):
     num_batches = orders.shape[0]
     d = orders.shape[1]
     mask = np.max(orders) + 1
-    
+
     matched_pairs = np.zeros((num_batches, d))
     for i in range(d):
         for batch in range(num_batches):
@@ -49,8 +49,8 @@ def get_matches(orders):
             # mask row & col
             orders[batch, indices[0], :] = np.ones(d) * mask
             orders[batch, :, indices[1]] = np.ones(d) * mask
-    
-    return matched_pairs    
+
+    return matched_pairs
 
 
 def reshape(x, seq_len, bs):
@@ -72,7 +72,8 @@ def get_dists(preds, gts, bs, n_sources, metric):
 #     print(preds.size())
 #     print(gts.size())
     for b in range(bs):
-        dists[b] = ssdist.cdist(flatten(preds[b], n_sources), flatten(gts[b], n_sources), metric=metric)
+        dists[b] = ssdist.cdist(flatten(preds[b], n_sources),
+                                flatten(gts[b], n_sources), metric=metric)
         if metric == 'correlation':
             dists[b] = -dists[b]
     return dists
@@ -81,10 +82,10 @@ def get_dists(preds, gts, bs, n_sources, metric):
 def get_correlation(m1, m2):
     mm1 = (m1 - m1.mean()).flatten()
     mm2 = (m2 - m2.mean()).flatten()
-    
+
     n = torch.dot(mm1, mm2)
     d = torch.norm(mm1) * torch.norm(mm2)
-    
+
     return -(1 - n / d)
 
 
@@ -92,8 +93,8 @@ def get_min_dist(preds, gts, device, metric):
     """
     Args:
         preds(tensor): [bs, seq_len, n_sources, input_dim]
-        gts(tensor): [bs, seq_len, n_sources, input_dim]
-    
+        gts(tensor): [bs, seq_len, n_sources, input_dim
+
     Returns:
         dists: [bs, n_sources]
     """
@@ -121,11 +122,13 @@ def get_min_dist(preds, gts, device, metric):
     return dists
 
 
-class MSELoss(nn.Module):
-    def __init__(self, device, metric):
-        super(MSELoss, self).__init__()
+class DiscrimLoss(nn.Module):
+    '''Discriminative loss function introduced by Huang et al.'''
+    def __init__(self, device, metric, gamma):
+        super().__init__()
         self.device = device
         self.metric = metric
+        self.gamma = gamma
 
     def forward(self, predictions, ground_truths):
         """
@@ -136,16 +139,25 @@ class MSELoss(nn.Module):
             loss: [bs,]
         """
         bs = predictions.size()[0]
+        # TODO: Huang et al. only introduced the discrim penalty
+        # for tasks with 2 sources
         dists = self._calc_dists(predictions, ground_truths)
+        pred_swapped = torch.Tensor(predictions.size()).to(self.device)
+        pred_swapped[:, :, [1, 0]] = predictions
 
-        loss = torch.sum(dists)
-        
+        penalties = self.gamma * \
+            self._calc_dists(pred_swapped, ground_truths)
+        sum_ = torch.sum(dists, 1) ** 2 + torch.sum(penalties, 1) ** 2
+
+        # loss = torch.sum(dists)
+        loss = torch.log(torch.sqrt(sum_.mean()))
+
         return loss
 
     def _calc_dists(self, preds, gts):
         bs, _, n_sources, _ = preds.size()
         dists = torch.zeros(bs, n_sources).to(self.device)
-        
+
         for b in range(bs):
             for src_id in range(n_sources):
                 pred = preds[:, :, src_id, :]
@@ -158,8 +170,8 @@ class MSELoss(nn.Module):
         return dists
 
 
-class MinLoss(nn.Module):
-    pass
+# class MinLoss(nn.Module):
+#     pass
 
 
 class GreedyLoss(nn.Module):
@@ -168,11 +180,12 @@ class GreedyLoss(nn.Module):
     Compare the distance from output with its closest ground truth.
 
     """
-    def __init__(self, device, metric):
+    def __init__(self, device, metric, gamma):
         # nn.Module.__init__(self)
         super(GreedyLoss, self).__init__()
         self.device = device
         self.metric = metric
+        self.gamma = gamma
 
     def forward(self, predictions, ground_truths):
         """
@@ -185,46 +198,13 @@ class GreedyLoss(nn.Module):
         bs = predictions.size()[0]
 
         # get distance measure (bs * num_sources)
-        dists = get_min_dist(predictions, ground_truths, self.device, self.metric)
-        
+        dists = get_min_dist(predictions, ground_truths, self.device,
+                             self.metric)
+
+        # log greedy RMSE
         loss = torch.log(torch.sqrt((torch.sum(dists, 1) ** 2).mean()))
-        
+
         return loss
-
-
-class Baseline(nn.Module):
-    """LSTM-only network
-
-    Args:
-        input_dim: the length of a vertical slice of the spectrogram
-        num_sources: number of individual sources in the combined clip.
-                     also the hidden dimension for the LSTM network
-    """
-
-    def __init__(
-            self,
-            input_dim,
-            # batch_size,
-            seq_len=SEQ_LEN,
-            num_sources=NUM_SOURCES):
-        super(Baseline, self).__init__()
-        self.input_dim = input_dim
-        self.num_sources = num_sources
-        # self.bs = batch_size
-        self.seq_len = seq_len
-        self.num_layers = NUM_LAYERS
-        self.lstm = nn.LSTM(input_dim, num_sources * input_dim)
-        # self.encoder = nn.Linear()
-
-
-    def forward(self, x):
-        bs = x.size()[0]
-        # x is agg
-        x = reshape(x, self.seq_len, bs)
-        x, _ = self.lstm(x)  # [seq_len, batch_size, num_sources * input_dim]
-        x = F.relu(x)
-        prediction = torch.split(x, self.input_dim, dim=-1)
-        return prediction 
 
 
 class A1(nn.Module):
@@ -247,43 +227,24 @@ class A1(nn.Module):
         return prediction, ys
 
 
-class A2(nn.Module):
-    """lstm, fc; relu, more complicated A1"""
-    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
-        super(A2, self).__init__()
-        self.input_dim = input_dim
-        self.num_layers = num_layers
-        self.num_sources = num_sources
-        self.seq_len = seq_len
-        self.lstm = nn.LSTM(input_dim, 100, num_layers=self.num_layers, batch_first=True)
-        self.fc1 = nn.Linear(100, 100, bias=True)
-        self.fc2 = nn.Linear(100, 100, bias=True)
-        self.fc3 = nn.Linear(100, num_sources * input_dim, bias=True)
-
-    def forward(self, x):
-        # TODO: handle text
-        bs = x.size()[0]
-        out, _ = self.lstm(x)
-        ys = self.fc1(F.relu(out))
-        ys = self.fc2(F.relu(out))
-        ys = self.fc3(F.relu(out))
-        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
-        prediction = x.unsqueeze(2) * ys
-        return prediction 
-
-
 class B1(nn.Module):
-    '''A1 with self-attention'''
+    '''LSTM baseline with residual connection'''
 
-    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
-        super(B1, self).__init__()
+    def __init__(self,
+            input_dim,
+            hidden_size, 
+            num_layers=NUM_LAYERS,
+            seq_len=SEQ_LEN,
+            num_sources=NUM_SOURCES):
+
+        super().__init__()
         self.input_dim = input_dim
         self.num_layers = num_layers
         self.num_sources = num_sources
         self.seq_len = seq_len
-        self.lstm = nn.LSTM(input_dim, 100, batch_first=True)
+        self.lstm = nn.LSTM(input_dim, hidden_size, batch_first=True)
         self.fc0 = nn.Linear(input_dim, input_dim, bias=True)
-        self.fc1 = nn.Linear(100, num_sources * input_dim, bias=True)
+        self.fc1 = nn.Linear(hidden_size, num_sources * input_dim, bias=True)
 
     def forward(self, x):
         # x size: [bs, seq_len, input_dim]
@@ -294,27 +255,6 @@ class B1(nn.Module):
         ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
         return prediction
-
-
-class C1(nn.Module):
-    '''A1 + text modality'''
-
-    def __init__(self, input_dim, num_layers=NUM_LAYERS, seq_len=SEQ_LEN, num_sources=NUM_SOURCES):
-        super(A1, self).__init__()
-        self.input_dim = input_dim
-        self.num_layers = num_layers
-        self.num_sources = num_sources
-        self.seq_len = seq_len
-        self.lstm = nn.LSTM(input_dim, 100, batch_first=True)
-        self.fc = nn.Linear(100, num_sources * input_dim, bias=True)
-
-    def forward(self, x):
-        bs = x.size()[0]
-        out, _ = self.lstm(x)
-        ys = self.fc(F.relu(out))
-        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
-        prediction = x.unsqueeze(2) * ys
-        return prediction 
 
 
 class LookToListenAudio(nn.Module):
@@ -391,4 +331,7 @@ class LookToListenAudio(nn.Module):
             bn = nn.BatchNorm2d(chan)
             bns.append(bn)
         return bns
+
+
+
 

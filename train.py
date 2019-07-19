@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 # default parameters
 NUM_SOURCES = 2
-BATCH_SIZE = 32 
+BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
 CRITERION = 'minloss'
 TRAIN_DIR = '/home/ubuntu/dataset/dataset_c2/train_c2'
@@ -79,7 +79,7 @@ def run_epoch(data, model, model_name, n_sources, input_dim, device,
         # FIXME: only works with B1
         prediction = model(aggregate)
         loss = criterion(prediction, ground_truths)
-    
+
     return loss
 
 
@@ -90,11 +90,11 @@ def main():
     print('Preparing data...', end='')
     train_dir = args.train_dir
     test_dir = args.test_dir
-    
-    spect_dim = tuple(args.spect_dim) 
-    # input_dim = args.num_sources * spect_dim[0] 
-    input_dim = 2 * spect_dim[0] 
-   
+
+    spect_dim = tuple(args.spect_dim)
+    # input_dim = args.num_sources * spect_dim[0]
+    input_dim = 2 * spect_dim[0]
+
     "data loading function"
     transform = dt.Concat(spect_dim)
 
@@ -116,8 +116,8 @@ def main():
         model = models.B1(
                 input_dim,
                 seq_len=spect_dim[1],
-                num_sources=args.num_sources).to(device)
-    
+               num_sources=args.num_sources).to(device)
+
     elif args.model == 'google':
         transform = dt.ToTensor(spect_dim)
         model = models.LookListen_Base(
@@ -148,7 +148,7 @@ def main():
     "continue from chechpoint if pretrained model is present"
     if args.pretrained_dir:
         model.load_state_dict(torch.load(args.pretrained_dir))
-   
+
     "if pretrained model is present, continue from left off epoch"
     try:
         starting_epoch = int(re.search("_([0-9]+?)\(",
@@ -187,11 +187,11 @@ def main():
     writer = SummaryWriter(logdir=args.output_dir)
 
     model_path_prefix = '{}/{}'.format(args.model_dir, args.model)
-   
+
     # for early stopping
     # curr_loss = 10000
     # prev_model = None
-   
+
     print('Start training...')
     for epoch in range(starting_epoch, NUM_EPOCHS):
         train_loss = 0.0
@@ -199,16 +199,16 @@ def main():
         for i, info in tqdm(enumerate(dataloader)):
             torch.cuda.empty_cache()
             optimizer.zero_grad()
-            
+
             loss = run_epoch(info, model, args.model, args.num_sources,
-                    input_dim, device, args.learn_mask, criterion, generator) 
+                    input_dim, device, args.learn_mask, criterion, generator)
             train_loss += loss
             loss.backward()
             optimizer.step()
 
         # with torch.no_grad():
         #     for test_data in testloader:
-        #         test_loss += run_epoch(test_data, model, args.model, 
+        #         test_loss += run_epoch(test_data, model, args.model,
         #                 args.num_sources, input_dim, device, args.learn_mask,
         #                 criterion)
 
