@@ -1,4 +1,4 @@
-"""train.py
+"""search.py
 
 """
 import argparse
@@ -21,6 +21,7 @@ import model.models as custom_models
 import model.transformer as custom_transformer
 import model.srnn as huang_srnn
 import model.drnn as huang_drnn
+from model.min_loss import MinLoss
 
 
 # default parameters
@@ -32,17 +33,18 @@ ROOT_DIR = "/home/ubuntu/"
 RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "multimodal-listener/results")
 DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
 TBLOG_PATH = os.path.join(ROOT_DIR, "multimodal-listener/tb_logs")
+RESULT_FILENAME = 'results.csv'
 
 LOSS_MAX = 1e9
-MAX_EVAL = 10
+NUM_CONFIGS = 10
 NUM_TRIALS = 1
 TOLERANCE = 10  # for early stopping
 
 fieldnames = ['model', 'metric', 'task', 'loss_fn', 'trial',
-    'stop_epoch', 'max_epoch', 'lr', 'optim', 'batch_size', 'dropout',
-    'momentum', 'beta1', 'beta2', 'epsilon', 'hidden_size', 'in_chan',
-    'chan', 'N', 'h', 'd_model', 'd_ff', 'best_val_loss',
-              'best_model_path', 'gamma']
+              'stop_epoch', 'max_epoch', 'lr', 'optim', 'batch_size',
+              'dropout', 'momentum', 'beta1', 'beta2', 'epsilon',
+              'hidden_size', 'in_chan', 'chan', 'N', 'h', 'd_model',
+              'd_ff', 'best_val_loss', 'best_model_path', 'gamma']
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
@@ -50,15 +52,30 @@ logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 def get_argument():
     """context for searching"""
     parser = argparse.ArgumentParser(description='Setting up an experiment')
+    # random search from nothing
     parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--task', type=str)
     parser.add_argument('--model_type', type=str)
     parser.add_argument('--metric', type=str)
 
+    # continue interrupted random search
     parser.add_argument("--resume_from_checkpoint",
-            dest="resume", const=True,
-            action="store_const", default=False)
+                        dest="resume", const=True,
+                        action="store_const", default=False)
     parser.add_argument('--time', type=str, default=None)
+    parser.add_argument('--config_info', type=int, default=-1)
+    parser.add_argument('--startover',
+                        dest='load_checkpoint', const=False,
+                        action='store_const', default=True)
+
+    # for testing
+    parser.add_argument('--rerun_config', dest='rerunning', const=True,
+                        action='store_const', default=False)
+    parser.add_argument('--config_id', type=int)
+
+    # general setting
+    parser.add_argument('--num_configs', type=int, default=NUM_CONFIGS)
+    parser.add_argument('--result_filename', type=str, default=RESULT_FILENAME)
     return parser.parse_args()
 
 
@@ -90,7 +107,8 @@ def save_configs(time_info, all_configs, task, metric, model_type):
     torch.save({"all_configs": all_configs}, path)
 
 
-def fetch_progress(task, metric, model_type, time_info):
+def fetch_progress(task, metric, model_type, time_info,
+                   config_progress=-1, load_checkpoint=True, once=False):
     # e.g. results/2s-euclidean-LSTM-190712/
     setup_path = os.path.join(RESULT_PATH_PREFIX,
         "{}_{}_{}_{}".format(task, metric, model_type, time_info))
@@ -99,17 +117,19 @@ def fetch_progress(task, metric, model_type, time_info):
         "config.tar"))['all_configs']
 
     # XXX: determine which config to pick up
-    config_progress = -1
-    for name in os.listdir(setup_path):
-        if "config" in name and os.path.isdir(os.path.join(setup_path, name)):
-            config_progress += 1
+    if config_progress == -1:
+        for name in os.listdir(setup_path):
+            if ("config" in name and
+                os.path.isdir(os.path.join(setup_path, name))):
+                config_progress += 1
 
     assert(config_progress >= 0)
 
     # determine which trial to pick up
     # XXX: ignoring trial information
     # trial_progress = -1
-    # config_path = os.path.join(setup_path, "config_{}".format(config_progress))
+    # config_path = os.path.join(setup_path,
+    # "config_{}".format(config_progress))
     # for name in os.listdir(config_path):
     #     if os.path.isdir(os.path.join(config_path, name)):
     #         trial_progress +=1
@@ -117,22 +137,35 @@ def fetch_progress(task, metric, model_type, time_info):
     # assert(trial_progress >= 0)
 
     # results/setup_name/config_n/trial{}/snapshots/checkpoint.tar
+    if once:
+        configs_to_run = all_configs[config_progress:config_progress + 1]
+    else:
+        configs_to_run = all_configs[config_progress:]
+
     rec_info = {
-            'all_configs': all_configs[config_progress:],
-            # 'start_trial': trial_progress,
-            'checkpoint_path': os.path.join(
-                setup_path,
-                "config_{}".format(config_progress),
-                # "trial_{}".format(start_trial),
-                "snapshots/checkpoint.tar")
-            }
+        'all_configs': configs_to_run,
+        # 'start_trial': trial_progress,
+        'checkpoint_path': os.path.join(
+            setup_path,
+            "config_{}".format(config_progress),
+            "snapshots/checkpoint.tar"),
+        'load_checkpoint': load_checkpoint,
+        }
 
     return rec_info
 
 class Trainer():
     """Trainer object that runs through a single experiment"""
-    def __init__(self, task, metric, model_type,
-        config, device, tb_writer, time_info, rec_info):
+    def __init__(self,task, metric, model_type, config, device,
+                 tb_writer, time_info, rec_info, num_configs,
+                 result_filename):
+
+        # XXX: only support single-digit nsources
+        self.num_sources = int(task[0])
+        self.dataset_size = int(task[2:-2])
+        self.num_configs = num_configs
+        self.result_filename = result_filename
+
         self.time_info = time_info
         self.tb_writer = tb_writer
         self.rec_info = rec_info
@@ -151,6 +184,7 @@ class Trainer():
         self.start_epoch = 0
 
         self.curr_best_loss = LOSS_MAX
+        self.best_path = None
         # fill start_epoch, model, optim
         self._load_checkpoint()
 
@@ -160,9 +194,9 @@ class Trainer():
 
         es_counter = 0  # keeping track of early stopping
         terminated = False
-        best_model = None
         losses = {}
         losses['curr_best_loss'] = self.curr_best_loss
+
         # self.config['max_epoch'] = 50
         for epoch in range(self.start_epoch, self.config['max_epoch']):
             if terminated:
@@ -178,9 +212,13 @@ class Trainer():
             # save model with the best performance
             if val_loss < losses['curr_best_loss']:
                 es_counter = 0
-                best_model = copy.deepcopy(self.model)
                 # save best loss of current unfinished trial
                 losses['curr_best_loss'] = val_loss
+                logging.info("saving best model...")
+                self.best_path = self._save_model(epoch, losses,
+                                                  best_model=self.model,
+                                                  trial_id=trial_id)
+                logging.info("finished saving current best model")
             else:
                 es_counter += 1
                 if es_counter >= TOLERANCE:
@@ -189,42 +227,38 @@ class Trainer():
                             "terminated".format(TOLERANCE))
                     terminated = True
 
-            logging.info("{}_{}_{}: epoch {}, [{}/{}] train loss: {:.2f}, "
-                    "val loss: {:.2f}, duration: {:.0f}s"
+            logging.info("[{}/{}] {}_{}_{}: epoch {}, [{}/{}] train loss: "
+                    "{:.2f}, val loss: {:.2f}, duration: {:.0f}s "
                     "(early stopping: {}/{})".format(
-                    self.model_type,
-                    self.task[0],
-                    self.metric,
-                    epoch + 1,
-                    self.task[2:-2],
-                    self.task[2:-2],
-                    losses['train'],
-                    losses['val'],
-                    time.time() - end,
-                    es_counter,
-                    TOLERANCE))
+                        self.config['id'] + 1,
+                        self.num_configs,
+                        self.model_type,
+                        self.task[0],
+                        self.metric,
+                        epoch + 1,
+                        self.task[2:-2],
+                        self.task[2:-2],
+                        losses['train'],
+                        losses['val'],
+                        time.time() - end,
+                        es_counter,
+                        TOLERANCE))
 
             self._log_tb(losses, epoch, trial_id)
 
             if (epoch + 1) % CHECKPOINT_FREQ == 0:
                 logging.info("saving snapshot...")
                 self._save_model(epoch, losses, trial_id=trial_id)
-                # save if best_model is updated
-                if best_model is not None:
-                    logging.info("saving best model...")
-                    best_path = self._save_model(epoch, losses, 
-                            best_model=best_model, trial_id=trial_id)
-                    best_model = None  # refresh best model
                 logging.info("finished saving snapshots")
 
 
         # reset best loss for next configuration
         self.curr_best_loss = LOSS_MAX
         # TODO: use google api
-        self._log_sheet(trial_id, epoch, losses['curr_best_loss'], best_path)
+        self._log_sheet(trial_id, epoch, losses['curr_best_loss'])
 
-    def _log_sheet(self, trial_id, epoch, best_val_loss, best_path):
-        csv_path = os.path.join(RESULT_PATH_PREFIX, "results.csv")
+    def _log_sheet(self, trial_id, epoch, best_val_loss):
+        csv_path = os.path.join(RESULT_PATH_PREFIX, self.result_filename)
         with open(csv_path, 'a+') as csvfile:
             csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             content = copy.deepcopy(self.config)
@@ -235,7 +269,7 @@ class Trainer():
             content['task'] = self.task
             content['trial'] = trial_id + 1
             content['best_val_loss'] = best_val_loss
-            content['best_model_path'] = best_path
+            content['best_model_path'] = self.best_path
             csv_writer.writerow(content)
 
     def train(self, epoch):
@@ -243,7 +277,7 @@ class Trainer():
         # train_loss, test_loss = 0.0, 0.0
         for batch_idx, batch in enumerate(self.dataloader['train']):
             logging.debug(batch_idx + 1)
-            logging.debug(len(self.dataloader['train']) // LOG_FREQ)
+            logging.debug(self.dataset_size // LOG_FREQ)
 
             # XXX: need to understand LBFGS
             if self.model_type == "DRNN" or self.model_type == "SRNN":
@@ -262,17 +296,21 @@ class Trainer():
                 loss.backward()
                 self.optim.step()
 
-            if (batch_idx + 1) % (len(self.dataloader['train']) // \
-                    LOG_FREQ) == 0:
-                logging.info("{}_{}_{}: epoch {}, [{:5d}/{}] "
+            if (batch_idx + 1) % (self.dataset_size // \
+                                  self.config['batch_size'] // \
+                                  LOG_FREQ) == 0:
+                logging.info("[{}/{}] {}_{}_{}: epoch {}, [{:5d}/{}] "
                         "train loss: {:.2f}".format(
+                            self.config['id'] + 1,
+                            self.num_configs,
                             self.model_type,
-                            self.task[0],
+                            self.num_sources,
                             self.metric,
                             epoch + 1,
                             batch_idx * self.config['batch_size'],
-                            self.task[2:-2],
+                            self.dataset_size,
                             loss.item()))
+
         return loss.item()
 
     def validate(self, batch):
@@ -323,16 +361,21 @@ class Trainer():
         model_name = "checkpoint.tar" if best_model is None else "best.tar"
         # e.g. results/setup_name/config_0/snapshots/checkpoint.tar
         # e.g. results/setup_name/config_0/snapshots/best.tar
-        model_path = os.path.join(
+        model_path_prefix = os.path.join(
                 RESULT_PATH_PREFIX,
                 "{}_{}_{}_{}".format(self.task, self.metric,
-                    self.model_type, self.time_info),
+                                     self.model_type, self.time_info),
                 "config_{}".format(self.config['id']),
                 # "trial_{}".format(trial_id),
-                "snapshots",
-                model_name)
+                "snapshots")
+
+        model_path = os.path.join(model_path_prefix, model_name)
 
         make_dir(model_path)
+
+        # XXX: first time saving
+        if self.best_path is None:
+            self.best_path = os.path.join(model_path_prefix, "best.tar")
 
         # save model
         torch.save({
@@ -342,6 +385,7 @@ class Trainer():
             'train_loss': losses['train'],
             'val_loss': losses['train'],
             'curr_best_loss': losses['curr_best_loss'],
+            'best_model_path': self.best_path,
             }, model_path)
 
         return model_path
@@ -352,10 +396,9 @@ class Trainer():
             gamma = self.config['gamma']
         if self.config['loss_fn'] == "Greedy":
             criterion = custom_models.GreedyLoss(self.device, self.metric,
-                                                 gamma)
+                                                 gamma, self.num_sources)
         elif self.config['loss_fn'] == "Min":
-            criterion = custom_models.MinLoss(self.device, self.metric,
-                                              gamma)
+            criterion = MinLoss(self.device, self.metric, self.num_sources)
         elif self.config['loss_fn'] == "Discrim":
             criterion = custom_models.DiscrimLoss(self.device, self.metric,
                                                   gamma)
@@ -408,7 +451,7 @@ class Trainer():
             "data_spec.json"), 'r') as reader:
             spect_shape = json.load(reader)
 
-        num_sources = int(self.task[0])
+        # num_sources = int(self.task[0])
         # load dataloader and model
         if (self.model_type == "LSTM"):
             transform = custom_dataset.Concat(
@@ -417,15 +460,17 @@ class Trainer():
                     input_dim=spect_shape['freq_range'] * 2,
                     seq_len=spect_shape['seq_len'],
                     hidden_size=self.config['hidden_size'],
-                    num_sources=num_sources).to(self.device)
+                    num_sources=self.num_sources).to(self.device)
 
+        # FIXME: no hyperparameter passed into GAB initialization
         elif (self.model_type == "GAB"):
             transform = custom_dataset.ToTensor(
                 size=(spect_shape['freq_range'], spect_shape['seq_len']))
             model = custom_models.LookToListenAudio(
-                    input_dim=spect_shape['freq_range'],
-                    seq_len=spect_shape['seq_len'],
-                    num_sources=num_sources).to(self.device)
+                input_dim=spect_shape['freq_range'],
+                chan=self.config['chan'],
+                seq_len=spect_shape['seq_len'],
+                num_sources=self.num_sources).to(self.device)
 
         elif (self.model_type == "VTF"):
             transform = custom_dataset.Concat(
@@ -437,12 +482,12 @@ class Trainer():
                     d_model=self.config['d_model'],
                     d_ff=self.config['d_ff'],
                     h=self.config['h'],
-                    num_sources=num_sources,
+                    num_sources=self.num_sources,
                     dropout=self.config['dropout']).to(self.device)
 
         elif self.model_type == "SRNN":
             self.config['loss_fn'] = 'Discrim'
-            # self.config['optim'] = 'LBFGS'
+            self.config['optim'] = 'LBFGS'
             logging.info("SRNN using {} as criterion and {} "
                          "as optimizer".format(self.config['loss_fn'],
                                                self.config['optim']))
@@ -450,13 +495,13 @@ class Trainer():
                 size=(spect_shape['freq_range'], spect_shape['seq_len']))
             model = huang_srnn.SRNN(
                     input_dim=spect_shape['freq_range'] * 2,
-                    num_sources=num_sources,
+                    num_sources=self.num_sources,
                     hidden_size=self.config['hidden_size'],
                     dropout=self.config['dropout']).to(self.device)
 
         elif self.model_type == "DRNN":
             self.config['loss_fn'] = 'Discrim'
-            # self.config['optim'] = 'LBFGS'
+            self.config['optim'] = 'LBFGS'
             logging.info("DRNN using {} as criterion and {} "
                          "as optimizer".format(self.config['loss_fn'],
                                                self.config['optim']))
@@ -464,7 +509,7 @@ class Trainer():
                 size=(spect_shape['freq_range'], spect_shape['seq_len']))
             model = huang_drnn.DRNN(
                     input_dim=spect_shape['freq_range'] * 2,
-                    num_sources=num_sources,
+                    num_sources=self.num_sources,
                     hidden_size=self.config['hidden_size'],
                     k=1,
                     dropout=self.config['dropout']).to(self.device)
@@ -476,8 +521,6 @@ class Trainer():
         dataloader = {}
         dataloader['train'] = get_loader("train")
         dataloader['test'] = get_loader("test")
-
-
         logging.info("finished setting up {}".format(self.model_type))
         return dataloader, model
 
@@ -485,27 +528,38 @@ class Trainer():
 
         # load checkpoint if resuming operations
         if self.rec_info is not None:
+            if not self.rec_info['load_checkpoint']:
+                logging.info("starting fresh from "
+                             "configuration #{}".format(self.config['id']))
+                return
+
             # given trial, pick up model snapshot
-            logging.info("loading checkpoint from configuration # {}".format(
+            logging.info("loading checkpoint from configuration #{}".format(
                 self.config['id']))
-            checkpoint = torch.load(self.rec_info['checkpoint_path'])
+
+            # to continue training
+            checkpoint = torch.load(self.rec_info['checkpoint_path'],
+                                    map_location=self.device)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optim.load_state_dict(checkpoint['optim_state_dict'])
             self.start_epoch = checkpoint['epoch'] + 1
+
+            # to benchmark early-stopping criterion
             self.curr_best_loss = checkpoint['curr_best_loss']
+            self.best_path = checkpoint['best_model_path']
             logging.info("checkpoint loaded!")
 
 
 def select_configs():
     all_configs = []
-    max_eval = MAX_EVAL
+    max_eval = NUM_CONFIGS
 
     max_epochs = [300, 400, 500]
     lrs = [0.001, 0.005, 0.01]
     optims = ['SGD', 'Adam', 'Adam']
     # TODO: implement Min
     # loss_fns = ['Greedy', 'Min']
-    loss_fns = ['Greedy']
+    loss_fns = ['Min']
     batch_sizes = [16, 64, 128]
     dropouts = [0.1, 0.3, 0.5]
     momentums = [0.0, 0.5, 0.9]
@@ -568,7 +622,7 @@ def main():
 
     # csv_path = "/media/bighdd7/tianjunm/multimodal-listener/results"
 
-    logging.info("GPU: {}, Task: {}, Metric: {}, Model: {}".format(device, 
+    logging.info("GPU: {}, Task: {}, Metric: {}, Model: {}".format(device,
         args.task, args.metric, args.model_type))
 
     if args.resume:
@@ -576,15 +630,29 @@ def main():
         time_info = args.time
         # information for recovery
         rec_info = fetch_progress(args.task, args.metric, args.model_type,
-                time_info)
+                                  time_info, args.config_info,
+                                  args.load_checkpoint)
         all_configs = rec_info['all_configs']
         # start_trial = rec_info['start_trial']
         logging.info("found partial results")
+
+    # XXX: fetch_progress, time_info, once are messy
+    elif args.rerunning:
+        logging.info("re-evaluating configuration...")
+        time_info = time.strftime("%y%m%d", time.gmtime())
+        rec_info = fetch_progress(args.task, args.metric, args.model_type,
+                                  args.time, args.config_id,
+                                  load_checkpoint=False, once=True)
+        all_configs = rec_info['all_configs']
+        logging.info("re-evalutaing config #{}".format(args.config_id))
+        logging.debug(len(all_configs))
+        assert(len(all_configs) == 1)
+
     else:
         logging.info("initiating new experiment...")
         time_info = time.strftime("%y%m%d", time.gmtime())
 
-        # csv_path = os.path.join(RESULT_PATH_PREFIX, "results.csv")
+        # csv_path = os.path.join(RESULT_PATH_PREFIX, RESULT_FILENAME)
         # make_dir(csv_path)
         # with open(csv_path, "a+") as csvfile:
         #     csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -595,7 +663,7 @@ def main():
         # start_trial = 0
         save_configs(time_info, all_configs, args.task,
             args.metric, args.model_type)
-        assert(len(all_configs) == MAX_EVAL)
+        assert(len(all_configs) == NUM_CONFIGS)
 
     start_trial = 0
     # tensorboard writer
@@ -605,7 +673,8 @@ def main():
         logging.info("configuration #{}:".format(config['id']))
         logging.info(config)
         trainer = Trainer(args.task, args.metric, args.model_type, config,
-                device, tb_writer, time_info, rec_info)
+                          device, tb_writer, time_info, rec_info, len(all_configs),
+                          args.result_filename)
 
         # run the experiment [num_trials] times
         for trial_id in range(start_trial, NUM_TRIALS):

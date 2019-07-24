@@ -180,12 +180,13 @@ class GreedyLoss(nn.Module):
     Compare the distance from output with its closest ground truth.
 
     """
-    def __init__(self, device, metric, gamma):
+    def __init__(self, device, metric, gamma, num_sources):
         # nn.Module.__init__(self)
         super(GreedyLoss, self).__init__()
         self.device = device
         self.metric = metric
         self.gamma = gamma
+        self.num_sources = num_sources
 
     def forward(self, predictions, ground_truths):
         """
@@ -201,10 +202,11 @@ class GreedyLoss(nn.Module):
         dists = get_min_dist(predictions, ground_truths, self.device,
                              self.metric)
 
-        # log greedy RMSE
-        loss = torch.log(torch.sqrt((torch.sum(dists, 1) ** 2).mean()))
+        sum_ = torch.sum(dists, 1) / self.num_sources
+        # greedy RMSE
+        loss = torch.sqrt((sum_ ** 2).mean())
 
-        return loss
+        return torch.log(loss)
 
 
 class A1(nn.Module):
@@ -258,7 +260,7 @@ class B1(nn.Module):
 
 
 class LookToListenAudio(nn.Module):
-    
+
     def __init__(self, seq_len, input_dim, in_chan=2, chan=6,
             num_sources=NUM_SOURCES):
         super(LookToListenAudio, self).__init__()
@@ -273,7 +275,7 @@ class LookToListenAudio(nn.Module):
         self.dilation_dims = [(1, 1), (1, 1), (1, 1),
                 (2, 2), (4, 4), (8, 8), (1, 1)]
         assert(len(self.kernel_dims) == len(self.dilation_dims))
-        
+
         self.num_layers = len(self.kernel_dims)
         self.convs = nn.ModuleList(self._construct_convs())
         self.bns = nn.ModuleList(self._construct_bns())
@@ -289,11 +291,11 @@ class LookToListenAudio(nn.Module):
         # dilated convolutional network
         for conv, bn in zip(self.convs, self.bns):
             x = F.relu(bn(conv(x)))
-        
-        # audio-visual fusion 
+
+        # audio-visual fusion
         # [bs, seq_len, out_chan * input_dim]
         x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)
-        
+
         # bidirectional lstm
         x, _ = self.blstm(x)
         x = F.relu(x)
