@@ -2,7 +2,102 @@
 import os
 import numpy as np
 import torch
+import pandas as pd
+from pydub import AudioSegment as auseg
 from torch.utils.data import Dataset
+
+# XXX
+MIXTURE_DURATION = 2000
+WINDOW_SIZE = 256
+HOP_LENGTH = 256 // 4 * 3
+
+
+# audio manipulation utils
+def overlay(ground_truths):
+    """Overlay ground truths together to create the aggregate."""
+    aggregate = ground_truths[0]
+    for idx in range(1, len(ground_truths)):
+        aggregate.overlay(ground_truths[idx])
+    return aggregate
+
+
+def get_spect(wav):
+    """Apply STFT on the wave form to get its spectrogram representation."""
+    wav_arr = wav.get_array_of_samples()
+    spect = torch.stft(wav_arr, WINDOW_SIZE, HOP_LENGTH).permute(2, 0, 1)
+    return spect
+
+
+class MixtureDataset(Dataset):
+    """This dataset loads the mixture-ground truth pairs.
+
+    This dataset followes a set of instructions to load
+    sound clips from the raw dataset and convert them to
+    spectrograms.
+    """
+
+    def __init__(self, num_sources, instruction_path, raw_data_path,
+                 transform=None):
+        self._nsrc = num_sources
+        self._instr = pd.read_csv(instruction_path)
+        self._raw_path = raw_data_path
+        self._transform = transform
+
+    def __len__(self):
+        return len(self._instr) // self._nsrc
+
+    def __getitem__(self, idx):
+        # what the dataloader loads
+        item = {'aggregate': None, 'ground_truths': []}
+
+        # load [nsrc] rows from instruction
+        instances = self._load_instances(idx)
+
+        for iid in instances.index:
+            item['ground_truths'].append(self._create_gt(instances, iid))
+
+        item['aggregate'] = overlay(item['ground_truths'])
+
+        return self._transform(item)
+
+    def _load_instances(self, idx):
+        # loading the section containing the [idx]th set of instances
+        begin, end = idx * self._nsrc, (idx + 1) * self._nsrc
+        instances = self._instr.iloc[begin:end]
+        return instances
+
+    def _create_gt(self, instances, iid):
+        # load original files according to filenames
+        filename = instances.at[iid, 'filename']
+        dur = instances.at[iid, 'clip_duration']
+        start, end = instances.at[iid, 'mixture_placement']
+
+        wav = auseg.from_wav(filename)
+        wav = wav[:min(len(wav), dur)]
+
+        # follow the corresponding instructions to
+        # manipulate the sound files
+        pad_before = auseg.silent(start)
+        pad_after = auseg.silent(MIXTURE_DURATION - end)
+
+        padded_wav = pad_before + wav + pad_after
+        assert len(padded_wav) == MIXTURE_DURATION
+
+        return padded_wav
+
+
+class Wav2Spect():
+    """Transforms wave forms to spectrogram tensors"""
+
+    def __call__(self, item):
+        transformed = {'aggregate': None, 'ground_truths': []}
+        transformed['aggregate'] = get_spect(item['aggregate'])
+
+        for gt_wav in item['ground_truths']:
+            gt_spect = get_spect(gt_wav)
+            transformed['ground_truths'].append(gt_spect)
+
+        return transformed
 
 
 class SignalDataset(Dataset):
