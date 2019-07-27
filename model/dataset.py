@@ -33,7 +33,7 @@ class SignalDataset(Dataset):
             if gt_name.endswith('.npy'):
                 gt = np.load(os.path.join(gt_path, gt_name))
                 item['ground_truths'].append(gt)
-        
+
         if self.transform:
             item = self.transform(item)
         return item
@@ -48,34 +48,34 @@ class ToTensor(object):
     def __call__(self, item):
         transformed = {'aggregate': None, 'ground_truths': None}
         agg = self._from_numpy(item['aggregate'])
-        transformed['aggregate'] = agg  
-        
+        transformed['aggregate'] = agg
+
         n_channels, seq_len, input_dim = agg.size()
         n_sources = len(item['ground_truths'])
 
         gts = torch.zeros((n_channels, seq_len, n_sources, input_dim))
         for s, gt in enumerate(item['ground_truths']):
             gts[:, :, s, :] = self._from_numpy(gt)
-        
+
         gts = torch.cat(list(gts), -1)
         transformed['ground_truths'] = torch.FloatTensor(gts)
-        return transformed 
+        return transformed
 
     def _from_numpy(self, m):
         input_dim, seq_len = self.size
         result = torch.zeros((2, seq_len, input_dim))
         result[0] = torch.from_numpy(m[0, :, :seq_len].T)
         result[1] = torch.from_numpy(m[1, :, :seq_len].T)
-        return result.float() 
+        return result.float()
 
 
 class Concat(object):
     """2-channel spectrogram to single-channel tensor
     """
-    
+
     def __init__(self, size, encdec=False):
         self.size = size
-        self.encdec= encdec 
+        self.encdec= encdec
 
     def __call__(self, item):
         transformed = {'aggregate': [], 'ground_truths': [],
@@ -102,10 +102,10 @@ class Concat(object):
             # tgt_gt = torch.cat([gts, end])
             transformed['ground_truths_in'] = torch.FloatTensor(tgt_in)
             transformed['ground_truths_gt'] = torch.FloatTensor(gts)
-            
+
         transformed['ground_truths'] = torch.FloatTensor(gts)
 
-        return transformed 
+        return transformed
 
     def _from_complex(self, m):
         # num_channels, nrows, ncols = m.shape

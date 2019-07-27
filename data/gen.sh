@@ -1,18 +1,8 @@
 #!/bin/bash
 
-# CLASSES_2=("Acoustic_guitar" "Applause")
-# CLASSES_3=("Acoustic_guitar" "Applause" "Bark")
-# CLASSES_5=("Acoustic_guitar" "Applause" "Saxophone" "Bark" "Cough")
-# CLASSES_7=("Acoustic_guitar" "Applause" "Saxophone" "Bark" "Cough" "Electric_piano" "Telephone")
-
 NUM_SOURCES=5
 AGG_DUR=2
-# GT_DURS=(2.0 2.0 2.0 2.0 2.0 2.0 2.0)
-# GT_DURS=(0.5 0.5 0.5 0.5 0.5) 
-# GT_DURS=(1.5 1.5)
-# RANGE=10
 NUM_TRAIN=$(( ${NUM_SOURCES} * 10000))
-# NUM_TRAIN=4
 NUM_TEST=$(( ${NUM_SOURCES} * 1000))
 
 DATASET_ID="mixer/${NUM_SOURCES}-${NUM_TRAIN}-${AGG_DUR}"

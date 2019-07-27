@@ -41,8 +41,7 @@ NUM_TRIALS = 1
 TOLERANCE = 10  # for early stopping
 
 fieldnames = ['model', 'metric', 'task', 'loss_fn', 'trial',
-              'stop_epoch', 'max_epoch', 'lr', 'optim', 'batch_size',
-              'dropout', 'momentum', 'beta1', 'beta2', 'epsilon',
+              'stop_epoch', 'max_epoch', 'lr', 'optim', 'batch_size', 'dropout', 'momentum', 'beta1', 'beta2', 'epsilon',
               'hidden_size', 'in_chan', 'chan', 'N', 'h', 'd_model',
               'd_ff', 'best_val_loss', 'best_model_path', 'gamma']
 
