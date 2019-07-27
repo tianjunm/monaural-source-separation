@@ -30,10 +30,11 @@ MAX_EPOCHS = 500
 LOG_FREQ = 10
 CHECKPOINT_FREQ = 1
 ROOT_DIR = "/home/ubuntu/"
-RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "multimodal-listener/results")
+RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/results")
 DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
-TBLOG_PATH = os.path.join(ROOT_DIR, "multimodal-listener/tb_logs")
-RESULT_FILENAME = 'results.csv'
+INSTR_PATH = '/home/ubuntu/datasets/processed/datagen/'
+TBLOG_PATH = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/tb_logs")
+RESULT_FILENAME = '/home/ubuntu/experiment_logs/results/results.csv'
 
 LOSS_MAX = 1e9
 NUM_CONFIGS = 10
@@ -56,6 +57,7 @@ def get_argument():
     parser.add_argument('--task', type=str)
     parser.add_argument('--model_type', type=str)
     parser.add_argument('--metric', type=str)
+    parser.add_argument('--catcap', type=str)
 
     # continue interrupted random search
     parser.add_argument("--resume_from_checkpoint",
@@ -157,13 +159,15 @@ class Trainer():
     """Trainer object that runs through a single experiment"""
     def __init__(self,task, metric, model_type, config, device,
                  tb_writer, time_info, rec_info, num_configs,
-                 result_filename):
+                 result_filename, catcap):
 
         # XXX: only support single-digit nsources
         self.num_sources = int(task[0])
         self.dataset_size = int(task[2:-2])
         self.num_configs = num_configs
         self.result_filename = result_filename
+        # XXX
+        self.catcap = catcap
 
         self.time_info = time_info
         self.tb_writer = tb_writer
@@ -432,11 +436,15 @@ class Trainer():
         def get_loader(dataset_type):
             """get loader based on train/test spec"""
 
-            dataset_path = os.path.join(self.dataset_path_prefix,
-                    "{}/{}".format(self.task, dataset_type))
+            # dataset_path = os.path.join(self.dataset_path_prefix,
+            #         "{}/{}".format(self.task, dataset_type))
 
-            dataset = custom_dataset.SignalDataset(root_dir=dataset_path,
-                    transform=transform)
+            # dataset = custom_dataset.SignalDataset(root_dir=dataset_path,
+            #         transform=transform)
+            instr_path = os.path.join(INSTR_PATH, self.catcap, '{}.csv'.format(dataset_type))
+            dataset = custom_dataset.MixtureDataset(num_sources=self.num_sources,
+                                                    instruction_path=instr_path,
+                                                    transform=transform)
 
             dataloader = torch.utils.data.DataLoader(
                     dataset,
@@ -453,8 +461,9 @@ class Trainer():
         # num_sources = int(self.task[0])
         # load dataloader and model
         if (self.model_type == "LSTM"):
-            transform = custom_dataset.Concat(
-                size=(spect_shape['freq_range'], spect_shape['seq_len']))
+            # transform = custom_dataset.Concat(
+            #     size=(spect_shape['freq_range'], spect_shape['seq_len']))
+            transform = custom_dataset.Wav2Spect('Concat')
             model = custom_models.B1(
                     input_dim=spect_shape['freq_range'] * 2,
                     seq_len=spect_shape['seq_len'],
@@ -472,9 +481,10 @@ class Trainer():
                 num_sources=self.num_sources).to(self.device)
 
         elif (self.model_type == "VTF"):
-            transform = custom_dataset.Concat(
-                size=(spect_shape['freq_range'], spect_shape['seq_len']),
-                encdec=True)
+            # transform = custom_dataset.Concat(
+            #     size=(spect_shape['freq_range'], spect_shape['seq_len']),
+            #     encdec=True)
+            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
             model = custom_transformer.make_model(
                     input_dim=spect_shape['freq_range'] * 2,
                     N=self.config['N'],
@@ -519,7 +529,7 @@ class Trainer():
 
         dataloader = {}
         dataloader['train'] = get_loader("train")
-        dataloader['test'] = get_loader("test")
+        dataloader['test'] = get_loader("val")
         logging.info("finished setting up {}".format(self.model_type))
         return dataloader, model
 
@@ -673,7 +683,7 @@ def main():
         logging.info(config)
         trainer = Trainer(args.task, args.metric, args.model_type, config,
                           device, tb_writer, time_info, rec_info, len(all_configs),
-                          args.result_filename)
+                          args.result_filename, args.catcap)
 
         # run the experiment [num_trials] times
         for trial_id in range(start_trial, NUM_TRIALS):

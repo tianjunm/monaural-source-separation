@@ -254,7 +254,7 @@ class B1(nn.Module):
         x_attn = self.fc0(x)
         out, _ = self.lstm(x + x_attn)
         ys = self.fc1(F.relu(out))
-        ys = ys.view(bs, self.seq_len, self.num_sources, self.input_dim)
+        ys = ys.view(bs, -1, self.num_sources, self.input_dim)
         prediction = x.unsqueeze(2) * ys
         return prediction
 

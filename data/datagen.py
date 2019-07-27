@@ -29,7 +29,7 @@ FRAMES_PER_SEC = 1000
 # # CATEGORY_COUNT = 42  # number of distinct categories available
 # CATEGORY_COUNT = 41  # number of distinct categories available
 # MAX_SIZE = np.inf
-DATASET_ROOT = './'
+DATASET_ROOT = '/home/ubuntu/datasets/processed/datagen'
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
@@ -468,9 +468,11 @@ class Dataset():
         self._dataset['mixture_placement'].append(info['placement'])
         self._dataset['category'].append(info['category'])
 
-    def export(self, dtype):
+    def export(self, dtype, nsrc, ncat):
         """Saves the dataset to a csv file."""
-        dest = os.path.join(self._dest_root, '{}.csv'.format(dtype))
+        prefix = '{}-s_{}-c'.format(nsrc, ncat)
+        dest = os.path.join(self._dest_root, prefix, '{}.csv'.format(dtype))
+        create_dir(dest)
         pd.DataFrame(self._dataset).to_csv(dest, index=False)
 
 
@@ -486,6 +488,7 @@ class DataGenerator(object):
                  max_clip_duration,
                  mixture_duration,
                  dataset_path,
+                 num_categories,
                  types_to_generate=['train', 'val', 'test']):
 
         self._nsrc = num_sources
@@ -494,6 +497,7 @@ class DataGenerator(object):
         self._cdur = max_clip_duration
         self._mdur = mixture_duration
         self._dtypes = types_to_generate
+        self._ncat = num_categories
 
         self._dataset = Dataset(dataset_path)
 
@@ -524,7 +528,7 @@ class DataGenerator(object):
                 info = self._pick_and_drop(chosen)
                 self._dataset.insert(info)
 
-        self._dataset.export(dtype)
+        self._dataset.export(dtype, self._nsrc, self._ncat)
         self._dataset.reset()
 
         logging.info('finished generating the %s set!', dtype)
@@ -551,7 +555,7 @@ class DataGenerator(object):
         end = start + clip_dur
 
         info['duration'] = clip_dur
-        info['placement'] = (start, end)
+        info['placement'] = [start, end]
 
         return info
 
@@ -559,7 +563,7 @@ class DataGenerator(object):
 def define_dataset_split(num_sources):
     """Specifications of the train/val/test sets to be generated.
 
-    
+
     This function sepcifies the sizes of train/val/test sets. Beyond the sizes
     of different datasets, different types of dataset should contain sets of
     data exclusive to others to guarantee fair evaluation of the generalization
@@ -611,7 +615,8 @@ def main():
                               args.max_clip_duration,
                               args.mixture_duration,
                               args.dataset_path,
-                              types_to_generate=['val', 'test'])
+                              args.num_categories)
+                              # types_to_generate=['test'])
 
     generator.generate()
 
