@@ -39,7 +39,7 @@ RESULT_FILENAME = '/home/ubuntu/experiment_logs/results/results.csv'
 LOSS_MAX = 1e9
 NUM_CONFIGS = 10
 NUM_TRIALS = 1
-TOLERANCE = 10  # for early stopping
+TOLERANCE = 1000  # for early stopping
 
 fieldnames = ['model', 'metric', 'task', 'loss_fn', 'trial',
               'stop_epoch', 'max_epoch', 'lr', 'optim', 'batch_size', 'dropout', 'momentum', 'beta1', 'beta2', 'epsilon',
@@ -97,10 +97,10 @@ def make_dir(path):
                 raise
 
 
-def save_configs(time_info, all_configs, task, metric, model_type):
+def save_configs(time_info, all_configs, task, metric, model_type, catcap):
     path = os.path.abspath(os.path.join(
             RESULT_PATH_PREFIX,
-            "{}_{}_{}_{}/".format(task, metric, model_type, time_info),
+            "{}_{}_{}_{}_{}/".format(task, metric, model_type, time_info, catcap),
             "config.tar"))
     make_dir(path)
 
@@ -109,10 +109,10 @@ def save_configs(time_info, all_configs, task, metric, model_type):
 
 
 def fetch_progress(task, metric, model_type, time_info,
-                   config_progress=-1, load_checkpoint=True, once=False):
+                   config_progress=-1, catcap='', load_checkpoint=True, once=False):
     # e.g. results/2s-euclidean-LSTM-190712/
     setup_path = os.path.join(RESULT_PATH_PREFIX,
-        "{}_{}_{}_{}".format(task, metric, model_type, time_info))
+        "{}_{}_{}_{}_{}".format(task, metric, model_type, time_info, catcap))
 
     all_configs = torch.load(os.path.join(setup_path,
         "config.tar"))['all_configs']
@@ -183,6 +183,7 @@ class Trainer():
         # self.model = self._init_model()
         self.dataloader, self.model = self._init_model()
         self.optim = self._init_optim()
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optim, 'min')
         self.criterion = self._init_criterion()
         self.start_epoch = 0
 
@@ -202,6 +203,7 @@ class Trainer():
 
         # self.config['max_epoch'] = 50
         for epoch in range(self.start_epoch, self.config['max_epoch']):
+        # for epoch in range(1):
             if terminated:
                 break
 
@@ -209,6 +211,7 @@ class Trainer():
             train_loss = self.train(epoch)
             val_loss = self.validate(epoch)
 
+            self.scheduler.step(val_loss)
             losses['train'] = train_loss
             losses['val'] = val_loss
 
@@ -330,7 +333,7 @@ class Trainer():
 
     def _compute_loss(self, batch):
         aggregate = batch['aggregate'].to(self.device)
-        if self.model_type == "VTF":
+        if self.model_type in ["VTF", "DETF"]:
             ground_truths_in = batch['ground_truths_in'].to(self.device)
             ground_truths = batch['ground_truths_gt'].to(self.device)
 
@@ -348,10 +351,11 @@ class Trainer():
         return loss
 
     def _log_tb(self, losses, epoch, trial_id):
-        legend_prefix = "{}_{}_{}_{}".format(
+        legend_prefix = "{}_{}_{}_{}_{}".format(
                 self.model_type,
                 self.task,
                 self.config['id'],
+            self.catcap,
                 trial_id)
         self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
                 {
@@ -366,8 +370,9 @@ class Trainer():
         # e.g. results/setup_name/config_0/snapshots/best.tar
         model_path_prefix = os.path.join(
                 RESULT_PATH_PREFIX,
-                "{}_{}_{}_{}".format(self.task, self.metric,
-                                     self.model_type, self.time_info),
+                "{}_{}_{}_{}_{}".format(self.task, self.metric,
+                                        self.model_type, self.time_info,
+                                        self.catcap),
                 "config_{}".format(self.config['id']),
                 # "trial_{}".format(trial_id),
                 "snapshots")
@@ -470,14 +475,13 @@ class Trainer():
                     hidden_size=self.config['hidden_size'],
                     num_sources=self.num_sources).to(self.device)
 
-        # FIXME: no hyperparameter passed into GAB initialization
         elif (self.model_type == "GAB"):
-            transform = custom_dataset.ToTensor(
-                size=(spect_shape['freq_range'], spect_shape['seq_len']))
+            # transform = custom_dataset.ToTensor(
+            #     size=(spect_shape['freq_range'], spect_shape['seq_len']))
+            transform = custom_dataset.Wav2Spect()
             model = custom_models.LookToListenAudio(
                 input_dim=spect_shape['freq_range'],
                 chan=self.config['chan'],
-                seq_len=spect_shape['seq_len'],
                 num_sources=self.num_sources).to(self.device)
 
         elif (self.model_type == "VTF"):
@@ -493,6 +497,18 @@ class Trainer():
                     h=self.config['h'],
                     num_sources=self.num_sources,
                     dropout=self.config['dropout']).to(self.device)
+        # XXX: input_dim & seq_len are temporary
+        elif self.model_type == "DETF":
+            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
+            model = custom_transformer.make_detf(
+                input_dim=spect_shape['freq_range'] * 2,
+                seq_len=460,
+                N=self.config['N'],
+                d_model=self.config['d_model'],
+                d_ff=self.config['d_ff'],
+                h=self.config['h'],
+                num_sources=self.num_sources,
+                dropout=self.config['dropout']).to(self.device)
 
         elif self.model_type == "SRNN":
             self.config['loss_fn'] = 'Discrim'
@@ -559,16 +575,18 @@ class Trainer():
             logging.info("checkpoint loaded!")
 
 
-def select_configs():
+def select_configs(num_configs):
     all_configs = []
-    max_eval = NUM_CONFIGS
+    max_eval = num_configs
+    # max_eval = NUM_CONFIGS
 
     max_epochs = [300, 400, 500]
-    lrs = [0.001, 0.005, 0.01]
+    # lrs = [0.001, 0.005, 0.01]
+    lrs = [0.001, 0.005, 0.003]
     optims = ['SGD', 'Adam', 'Adam']
     # TODO: implement Min
     # loss_fns = ['Greedy', 'Min']
-    loss_fns = ['Min']
+    loss_fns = ['Greedy']
     batch_sizes = [16, 64, 128]
     dropouts = [0.1, 0.3, 0.5]
     momentums = [0.0, 0.5, 0.9]
@@ -584,10 +602,14 @@ def select_configs():
     chans = [4, 16, 64]
 
     # for vanilla transformer
-    Ns = [2, 3, 4]
-    hs = [2, 4]
-    d_models = [64, 128, 256]
-    d_ffs = [64, 128, 256]
+    # Ns = [2, 3, 4]
+    Ns = [4]
+    hs = [4]
+    # XXX: 128 is the best param according to gridsearch
+    # d_models = [64, 128, 256]
+    d_models = [128]
+    # d_ffs = [64, 128, 256]
+    d_ffs = [128]
 
     # for rnn baselines
     gammas = [0.01, 0.05, 0.1]  # penalty for interference
@@ -639,8 +661,8 @@ def main():
         time_info = args.time
         # information for recovery
         rec_info = fetch_progress(args.task, args.metric, args.model_type,
-                                  time_info, args.config_info,
-                                  args.load_checkpoint)
+                                  time_info, config_progress=args.config_info,
+                                  catcap=args.catcap, load_checkpoint=args.load_checkpoint)
         all_configs = rec_info['all_configs']
         # start_trial = rec_info['start_trial']
         logging.info("found partial results")
@@ -668,11 +690,11 @@ def main():
         #     csv_writer.writeheader()
 
         rec_info = None
-        all_configs = select_configs()
+        all_configs = select_configs(args.num_configs)
         # start_trial = 0
         save_configs(time_info, all_configs, args.task,
-            args.metric, args.model_type)
-        assert(len(all_configs) == NUM_CONFIGS)
+                     args.metric, args.model_type, args.catcap)
+        assert(len(all_configs) == args.num_configs)
 
     start_trial = 0
     # tensorboard writer
@@ -703,6 +725,9 @@ def main():
 
         # won't need to recover again after finishing recovery
         rec_info = None
+        time.sleep(5)
+        # del trainer
+        # torch.cuda.empty_cache()
 
     logging.info("experiment done!")
     # logging.info("all stats uploaded to {}".format(record.url))

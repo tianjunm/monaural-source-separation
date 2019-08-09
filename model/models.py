@@ -261,11 +261,11 @@ class B1(nn.Module):
 
 class LookToListenAudio(nn.Module):
 
-    def __init__(self, seq_len, input_dim, in_chan=2, chan=6,
+    def __init__(self, input_dim, in_chan=2, chan=6,
             num_sources=NUM_SOURCES):
         super(LookToListenAudio, self).__init__()
         self.input_dim = input_dim
-        self.seq_len = seq_len
+        # self.seq_len = seq_len
         self.num_sources = num_sources
         self.in_chan = in_chan
         self.chan = chan
@@ -301,12 +301,12 @@ class LookToListenAudio(nn.Module):
         x = F.relu(x)
 
         # fcs
-        x = F.relu(self.fc1(x)) 
-        x = F.relu(self.fc2(x)) 
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
 
-        x = x.view(-1, self.seq_len, self.num_sources,
+        x = x.view(x.shape[0], -1, self.num_sources,
                 self.input_dim * self.in_chan)
-        prediction = x_in.unsqueeze(2) * x 
+        prediction = x_in.unsqueeze(2) * x
         return prediction
 
     def _construct_convs(self):

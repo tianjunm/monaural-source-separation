@@ -23,9 +23,9 @@ import matplotlib.pyplot as plt
 }
 """
 # D_MODEL = 512
-D_MODEL = 512 
+D_MODEL = 512
 # D_FF = 2048
-D_FF = 1024 
+D_FF = 1024
 # H = 8
 H = 4
 
@@ -80,6 +80,37 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
     return model
+
+
+def make_detf(input_dim, seq_len, N=3, d_model=D_MODEL, d_ff=D_FF,
+                   h=H, num_sources=2, dropout=0.1):
+    "Helper: Construct a double-encoder model from hyperparameters."
+    c = copy.deepcopy
+    attn = MultiHeadedAttention(h, d_model)
+    attn_t = MultiHeadedAttention(h, seq_len)
+
+    ff = PositionwiseFeedForward(d_model, d_ff, dropout)
+    ff_t = PositionwiseFeedForward(seq_len, d_ff, dropout)
+
+    position = PositionalEncoding(d_model, dropout)
+    # FIXME: experimenting with num_sources
+    model = DoubleEncoderDecoder(
+        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+        Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
+        Decoder(DecoderLayer(d_model, c(attn), c(attn),
+                             c(ff), dropout), N),
+        nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+        nn.Sequential(Embeddings(d_model, input_dim,
+            num_sources=num_sources), c(position)),
+        Generator(d_model, input_dim, num_sources=num_sources))
+
+    # This was important from their code.
+    # Initialize parameters with Glorot / fan_avg.
+    for p in model.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+    return model
+
 
 # FIXME: strange CUDA issue: how to achieve efficient memory usage
 def greedy_decoder(model, src, seq_len, num_sources, input_dim, device, 
@@ -253,7 +284,7 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-        
+
         # Compute the positional encodings once in log space.
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0., max_len).unsqueeze(1)
@@ -263,7 +294,7 @@ class PositionalEncoding(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
-        
+
     def forward(self, x):
         x = x + Variable(self.pe[:, :x.size(1)], 
                          requires_grad=False)
@@ -284,16 +315,44 @@ class EncoderDecoder(nn.Module):
         self.src_embed = src_embed
         self.tgt_embed = tgt_embed
         self.generator = generator
-        
+
     def forward(self, src, tgt, src_mask, tgt_mask):
         "Take in and process masked src and target sequences."
         return self.decode(self.encode(src, src_mask), src_mask,
                             tgt, tgt_mask)
-    
+
     def encode(self, src, src_mask):
         embedded = self.src_embed(src)
         return self.encoder(embedded, src_mask)
-    
+
+    def decode(self, memory, src_mask, tgt, tgt_mask):
+        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+
+
+class DoubleEncoderDecoder(nn.Module):
+    """
+    A double-encoder + decoder architecture
+    """
+    def __init__(self, encoder, encoder_t, decoder, src_embed, tgt_embed, generator):
+        super(DoubleEncoderDecoder, self).__init__()
+        self.encoder = encoder
+        self.encoder_t = encoder_t
+        self.decoder = decoder
+        self.src_embed = src_embed
+        self.tgt_embed = tgt_embed
+        self.generator = generator
+
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        "Take in and process masked src and target sequences."
+        return self.decode(self.encode(src, src_mask), src_mask,
+                            tgt, tgt_mask)
+
+    def encode(self, src, src_mask):
+        embedded = self.src_embed(src)  # [seq_len, d_model]
+        embedded_t = embedded.clone().permute(0, 2, 1)  # [d_model, seq_len]
+        return self.encoder(embedded, src_mask) + \
+            self.encoder_t(embedded_t, src_mask).permute(0, 2, 1)  # [seq_len, d_model]
+
     def decode(self, memory, src_mask, tgt, tgt_mask):
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
 
@@ -305,7 +364,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.size)
-        
+
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."
         for layer in self.layers:

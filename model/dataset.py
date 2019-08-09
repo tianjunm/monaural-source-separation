@@ -32,8 +32,8 @@ def overlay(ground_truths):
 
 def get_spect(wav, ttype):
     """Apply STFT on the wave form to get its spectrogram representation."""
-    # wav_arr = torch.from_numpy(np.array(wav.get_array_of_samples())).float()
-    wav_arr = torch.Tensor(wav.get_array_of_samples())
+    wav_arr = torch.from_numpy(np.array(wav.get_array_of_samples())).float()
+    # wav_arr = torch.Tensor(wav.get_array_of_samples())
     spect = torch.stft(wav_arr, WINDOW_SIZE, HOP_LENGTH,
                        window=torch.hann_window(256)).permute(2, 1, 0)
 
@@ -107,7 +107,7 @@ class MixtureDataset(Dataset):
 class Wav2Spect():
     """Transforms wave forms to spectrogram tensors"""
 
-    def __init__(self, tensor_type, enc_dec=False):
+    def __init__(self, tensor_type=None, enc_dec=False):
         self.ttype = tensor_type
         self.ed = enc_dec
 
@@ -117,7 +117,7 @@ class Wav2Spect():
 
         gts = []
         for gt_wav in item['ground_truths']:
-            gt_spect = get_spect(gt_wav, self.ttype)
+            gt_spect = get_spect(gt_wav, 'Concat')
             gts.append(gt_spect)
 
         transformed['ground_truths'] = torch.stack(gts, dim=-2)
