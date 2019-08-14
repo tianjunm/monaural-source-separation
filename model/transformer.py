@@ -8,6 +8,7 @@ from torch.autograd import Variable
 import matplotlib.pyplot as plt
 
 
+# XXX: citation format
 """
 @inproceedings{opennmt,
   author    = {Guillaume Klein and
@@ -82,9 +83,16 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
     return model
 
 
-def make_detf(input_dim, seq_len, N=3, d_model=D_MODEL, d_ff=D_FF,
-                   h=H, num_sources=2, dropout=0.1):
-    "Helper: Construct a double-encoder model from hyperparameters."
+def make_detf(
+        input_dim,
+        seq_len,
+        N=3,
+        d_model=D_MODEL,
+        d_ff=D_FF,
+        h=H,
+        num_sources=2,
+        dropout=0.1):
+    """Helper: Construct a double-encoder model from hyperparameters."""
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
     attn_t = MultiHeadedAttention(h, seq_len)
@@ -94,14 +102,16 @@ def make_detf(input_dim, seq_len, N=3, d_model=D_MODEL, d_ff=D_FF,
 
     position = PositionalEncoding(d_model, dropout)
     # FIXME: experimenting with num_sources
-    model = DoubleEncoderDecoder(
-        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-        Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
-        Decoder(DecoderLayer(d_model, c(attn), c(attn),
-                             c(ff), dropout), N),
+    model = EncoderDecoder(
+        DoubleEncoder(
+            EncoderLayer(d_model, c(attn), c(ff), dropout),
+            EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
+        Decoder(
+            DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
         nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-        nn.Sequential(Embeddings(d_model, input_dim,
-            num_sources=num_sources), c(position)),
+        nn.Sequential(
+            Embeddings(d_model, input_dim, num_sources=num_sources),
+            c(position)),
         Generator(d_model, input_dim, num_sources=num_sources))
 
     # This was important from their code.
@@ -372,13 +382,31 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 
+class DoubleEncoder(nn.Module):
+    "Core encoder is a stack of N layers"
+    def __init__(self, layer, layer_t, N):
+        super(DEncoder, self).__init__()
+        self.layers = clones(layer, N)
+        self.layer_ts = clones(layer_t, N)
+        self.norm = LayerNorm(layer.size)
+
+    def forward(self, x, mask):
+        "Pass the input (and mask) through each layer in turn."
+        for i, layer in enumerate(self.layers):
+            x_t = x.clone().permute(0, 2, 1)
+            x = layer(x, mask)
+            x_t = self.layer_ts[i](x_t, mask)
+            x = x + x_t.permute(0, 2, 1)
+        return self.norm(x)
+
+
 class Decoder(nn.Module):
     "Generic N layer decoder with masking."
     def __init__(self, layer, N):
         super(Decoder, self).__init__()
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.size)
-        
+
     def forward(self, x, memory, src_mask, tgt_mask):
         for layer in self.layers:
             x = layer(x, memory, src_mask, tgt_mask)
@@ -387,7 +415,7 @@ class Decoder(nn.Module):
 
 # "pytorch wrapper for skorch model object"
 # class Transformer(skorch.NeuralNet):
-    
+
 #     # def __init__(self, *args, **kwargs):
 #     #     super(kk
 #     def infer(slef, Xi, yi):

@@ -468,10 +468,11 @@ class Dataset():
         self._dataset['mixture_placement'].append(info['placement'])
         self._dataset['category'].append(info['category'])
 
-    def export(self, dtype, nsrc, ncat):
+    def export(self, ds_name, nsrc, ncat, ds_type=1):
         """Saves the dataset to a csv file."""
-        prefix = '{}-s_{}-c'.format(nsrc, ncat)
-        dest = os.path.join(self._dest_root, prefix, '{}.csv'.format(dtype))
+        # prefix = '{}-s_{}-c'.format(nsrc, ncat)
+        prefix = f"t{ds_type}-{nsrc}s-{ncat}c"
+        dest = os.path.join(self._dest_root, prefix, '{}.csv'.format(ds_name))
         create_dir(dest)
         pd.DataFrame(self._dataset).to_csv(dest, index=False)
 
@@ -481,15 +482,16 @@ class DataGenerator(object):
 
     """
 
-    def __init__(self,
-                 num_sources,
-                 train_val_test_split,
-                 selected_data,
-                 max_clip_duration,
-                 mixture_duration,
-                 dataset_path,
-                 num_categories,
-                 types_to_generate=['train', 'val', 'test']):
+    def __init__(
+            self,
+            num_sources,
+            train_val_test_split,
+            selected_data,
+            max_clip_duration,
+            mixture_duration,
+            dataset_path,
+            num_categories,
+            types_to_generate=['train', 'val', 'test']):
 
         self._nsrc = num_sources
         self._split = train_val_test_split
@@ -552,10 +554,10 @@ class DataGenerator(object):
         start_lo = 0
         start_hi = self._mdur * FRAMES_PER_SEC - clip_dur
         start = random.randint(start_lo, start_hi)
-        end = start + clip_dur
 
         info['duration'] = clip_dur
-        info['placement'] = [start, end]
+        # info['placement'] = [start, end]
+        info['start_time'] = start
 
         return info
 
@@ -609,14 +611,15 @@ def main():
     # of the raw dataset among train, val, and test sets
     train_val_test_split = define_dataset_split(args.num_sources)
 
-    generator = DataGenerator(args.num_sources,
-                              train_val_test_split,
-                              selected_data,
-                              args.max_clip_duration,
-                              args.mixture_duration,
-                              args.dataset_path,
-                              args.num_categories)
-                              # types_to_generate=['test'])
+    generator = DataGenerator(
+        args.num_sources,
+        train_val_test_split,
+        selected_data,
+        args.max_clip_duration,
+        args.mixture_duration,
+        args.dataset_path,
+        args.num_categories)
+        # types_to_generate=['test'])
 
     generator.generate()
 

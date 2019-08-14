@@ -14,13 +14,6 @@ WINDOW_SIZE = 256
 HOP_LENGTH = 256 // 4 * 3
 
 
-# helpers
-def parse_range(range_str):
-    """List of range is stored in a string, this function parses them out."""
-    start = int(range_str[1:-1].split(',')[0])
-    end = int(range_str[1:-1].split(',')[1])
-    return start, end
-
 # audio manipulation utils
 def overlay(ground_truths):
     """Overlay ground truths together to create the aggregate."""
@@ -34,8 +27,12 @@ def get_spect(wav, ttype):
     """Apply STFT on the wave form to get its spectrogram representation."""
     wav_arr = torch.from_numpy(np.array(wav.get_array_of_samples())).float()
     # wav_arr = torch.Tensor(wav.get_array_of_samples())
-    spect = torch.stft(wav_arr, WINDOW_SIZE, HOP_LENGTH,
-                       window=torch.hann_window(256)).permute(2, 1, 0)
+    spect = torch.stft(
+        wav_arr,
+        WINDOW_SIZE,
+        HOP_LENGTH,
+        window=torch.hann_window(256),
+        normalized=True).permute(2, 1, 0)
 
     if ttype == 'Concat':
         return torch.cat([spect[0], spect[1]], dim=-1)
@@ -51,16 +48,19 @@ class MixtureDataset(Dataset):
     spectrograms.
     """
 
-    def __init__(self, num_sources, instruction_path,
-                 raw_data_path=RAW_DATA_PATH,
-                 transform=None):
+    def __init__(
+            self,
+            num_sources,
+            data_path,
+            raw_data_path=RAW_DATA_PATH,
+            transform=None):
         self._nsrc = num_sources
-        self._instr = pd.read_csv(instruction_path)
+        self._data = pd.read_csv(data_path)
         self._raw_path = raw_data_path
         self._transform = transform
 
     def __len__(self):
-        return len(self._instr) // self._nsrc
+        return len(self._data) // self._nsrc
 
     def __getitem__(self, idx):
         # what the dataloader loads
@@ -79,14 +79,15 @@ class MixtureDataset(Dataset):
     def _load_instances(self, idx):
         # loading the section containing the [idx]th set of instances
         begin, end = idx * self._nsrc, (idx + 1) * self._nsrc
-        instances = self._instr.iloc[begin:end]
+        instances = self._data.iloc[begin:end]
         return instances
 
     def _create_gt(self, instances, iid):
         # load original files according to filenames
         filename = instances.at[iid, 'filename']
         dur = instances.at[iid, 'clip_duration']
-        start, end = parse_range(instances.at[iid, 'mixture_placement'])
+        start = instances.at[iid, 'start_time']
+        # start, end = parse_range(instances.at[iid, 'mixture_placement'])
         # print(filename)
 
         wav_path = os.path.join(self._raw_path, filename)
@@ -108,12 +109,12 @@ class Wav2Spect():
     """Transforms wave forms to spectrogram tensors"""
 
     def __init__(self, tensor_type=None, enc_dec=False):
-        self.ttype = tensor_type
-        self.ed = enc_dec
+        self._ttype = tensor_type
+        self._ed = enc_dec
 
     def __call__(self, item):
         transformed = {'aggregate': None, 'ground_truths': []}
-        transformed['aggregate'] = get_spect(item['aggregate'], self.ttype)
+        transformed['aggregate'] = get_spect(item['aggregate'], self._ttype)
 
         gts = []
         for gt_wav in item['ground_truths']:
@@ -122,7 +123,7 @@ class Wav2Spect():
 
         transformed['ground_truths'] = torch.stack(gts, dim=-2)
 
-        if self.ed:
+        if self._ed:
             seq_len, nsrc, input_dim = transformed['ground_truths'].shape
             # ground truths preceded by start symbols
             # combine last 2 dimensions

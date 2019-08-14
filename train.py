@@ -1,249 +1,433 @@
-"""train.py
-
-"""
 import argparse
-import re
+import csv
+import copy
+import logging
+import time
+import os
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from tensorboardX import SummaryWriter
-from model import models, transformer
-import model.dataset as dt
-from skorch import NeuralNetRegressor 
-from tqdm import tqdm
+import torch.optim
+import utils
+import constants as const
+
+import model.dataset as custom_dataset
+import model.models as custom_models
+import model.transformer as custom_transformer
+import model.srnn as huang_srnn
+import model.drnn as huang_drnn
+from model.min_loss import MinLoss
 
 
-# default parameters
-NUM_SOURCES = 2
-BATCH_SIZE = 32
-LEARNING_RATE = 1e-3
-CRITERION = 'minloss'
-TRAIN_DIR = '/home/ubuntu/dataset/dataset_c2/train_c2'
-TEST_DIR = '/home/ubuntu/dataset/dataset_c2/test_c2'
-OUTPUT_DIR = './logs'
-NUM_EPOCHS = 3000
-MODEL_TYPE = 'base'
-METRIC = 'euclidean'
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
 
-def get_argument():
-    """create parser for arguments"""
-    parser = argparse.ArgumentParser(description='Separator network')
-    parser.add_argument('--spect_dim', type=int, nargs='+')
-    parser.add_argument('--num_sources', type=int, default=NUM_SOURCES) 
-    parser.add_argument('--batch_size', type=int, default=BATCH_SIZE)
-    parser.add_argument('--criterion', type=str, default=CRITERION)
-    parser.add_argument('--model', type=str, default=MODEL_TYPE)
-    parser.add_argument('--metric', type=str, default=METRIC)
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--job_id', type=int, default=0)
-    parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
-    parser.add_argument('--train_dir', type=str, default=TRAIN_DIR)
-    parser.add_argument('--test_dir', type=str, default=TEST_DIR)
-    parser.add_argument('--model_dir', type=str)
-    parser.add_argument('--output_dir', type=str, default=OUTPUT_DIR)
-    parser.add_argument('--learn_mask', type=int, default=1)
-    parser.add_argument('--dataset', type=str, required=True)
-    parser.add_argument('--pretrained_dir', type=str, default="")
-    return parser.parse_args()
+class Trainer():
+    """Trainer object that runs through a single experiment"""
+    def __init__(self, setup, config, experiment_path, has_checkpoint=False):
 
+        self._device = setup['device']
+        self._ds_type = setup['dataset_type']
+        self._nsrc = setup['num_sources']
+        self._ncat = setup['category_range']
+        self._metric = setup['metric']
+        self._m_type = setup['model_type']
+        self._eid = setup['experiment_id']
+        self._nconf = setup['num_configs']
 
-def get_device(gpu_id):
-    '''get device info'''
-    device = 'cpu'
-    gpu_name = 'cuda:{}'.format(gpu_id)
-    if torch.cuda.is_available():
-        device = torch.device(gpu_name)
+        self._config = config
+        self._epath = experiment_path
+        self._cp = has_checkpoint
 
-    return device
+        self._ds_size = self._nsrc * const.TRAIN_SCALE
+        # self.tb_writer = tb_writer
+        # self.task = task
 
+        self._dl, self._model = self._init_model()
+        self._optim = self._init_optim()
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optim, 'min')
+        self._criterion = self._init_criterion()
 
-def run_epoch(data, model, model_name, n_sources, input_dim, device, 
-        learn_mask, criterion, generator=None):
-    aggregate = data['aggregate'].to(device)
-    if model_name == 'transformer':
-        ground_truths_in = data['ground_truths_in'].to(device)
-        ground_truths = data['ground_truths_gt'].to(device)
+        self.best_path = None
+        # fill start_epoch, model, optim
+        # self._load_checkpoint()
 
-        mask_size = ground_truths_in.shape[1]
-        subseq_mask = transformer.subsequent_mask(mask_size).to(device)
-#         agg_scatter = nn.parallel.scatter(aggregate, target_gpus=devices)
-#         gtin_scatter = nn.parallel.scatter(ground_truths_in,
-#                 target_gpus=devices)
-#         gt_scatter = nn.parallel.scatter(ground_truths, target_gpus=devices)
-        out = model(aggregate, ground_truths_in, None, subseq_mask)
-        prediction = generator(aggregate, out, learn_mask=learn_mask)
-        loss = criterion(prediction, ground_truths)
-    else:
-        ground_truths = data['ground_truths'].to(device)
-        # FIXME: only works with B1
-        prediction = model(aggregate)
-        loss = criterion(prediction, ground_truths)
+    def fit(self):
+        """Train the specified model for [max_epoch] epochs."""
+        logging.debug(self._device)
 
-    return loss
+        # TODO: es_counter will not be restored
+        es_counter = 0  # keeping track of early stopping
+        es_done = False  # indicator of early stopping
 
+        # self._load_()
+        if not self._cp:
+            start_epoch, min_loss = 0, const.MAX_LOSS
+        else:
+            start_epoch, min_loss = self._load_cp()
 
-def main():
-    args = get_argument()
-    device = get_device(args.gpu_id)
+        for epoch in range(start_epoch, self._config['max_epoch']):
+            if es_done:
+                break
 
-    print('Preparing data...', end='')
-    train_dir = args.train_dir
-    test_dir = args.test_dir
+            end = time.time()
+            train_loss = self.train(epoch)
+            val_loss = self.validate()
 
-    spect_dim = tuple(args.spect_dim)
-    # input_dim = args.num_sources * spect_dim[0]
-    input_dim = 2 * spect_dim[0]
+            # self.scheduler.step(val_loss)
 
-    "data loading function"
-    transform = dt.Concat(spect_dim)
+            # save model with the best performance
+            if val_loss < min_loss:
+                es_counter = 0
 
-    "network creation"
-    if args.model == 'A1':
-        model = models.A1(
-                input_dim,
-                seq_len=spect_dim[1],
-                num_sources=args.num_sources).to(device)
+                # save best loss of current unfinished trial
+                min_loss = val_loss
+                logging.info("saving best model...")
 
-    elif args.model == 'A2':
-        model = models.B1(
-                input_dim,
-                num_layers=2,
-                seq_len=spect_dim[1],
-                num_sources=args.num_sources).to(device)
+                self._save_model(
+                    epoch,
+                    train_loss,
+                    val_loss,
+                    best_model=self._model)
 
-    elif args.model == 'B1':
-        model = models.B1(
-                input_dim,
-                seq_len=spect_dim[1],
-               num_sources=args.num_sources).to(device)
+                logging.info("finished saving current best model")
+            else:
+                es_counter += 1
 
-    elif args.model == 'google':
-        transform = dt.ToTensor(spect_dim)
-        model = models.LookListen_Base(
-                seq_len=spect_dim[1],
-                input_dim=spect_dim[0],
-                num_sources=args.num_sources).to(device)
+                if es_counter >= const.TOLERANCE:
+                    es_done = True
+                    logging.info(
+                        "val loss does not decrease for more than "
+                        "%d epochs, training will be terminated",
+                        const.TOLERANCE)
 
-    elif args.model == 'transformer':
-        transform = dt.Concat(size=spect_dim, encdec=True)
-        # freq_range, seq_len = spect_dim
-        # model = transformer.make_model(input_dim,
-        #         num_sources=args.num_sources).to(device)
-        model = transformer.make_model(
-                input_dim,
-                N=6,
-                h=8,
-                num_sources=args.num_sources).to(device)
-        # generator = nn.DataParallel(model.generator, device_ids=[0, 1, 2, 3])
-        # generator = model.generator.to(device)
-        # model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
-        # model.to(device)
-    else:
-        model = models.Baseline(
-                input_dim, 
-                seq_len=spect_dim[1],
-                num_sources=args.num_sources).to(device)
+            logging.info(
+                "[%2d/%2d] %s: epoch %3d, [%5d/%5d] "
+                "train loss: %.2f, val loss: %.2f, duration: %.0fs "
+                "(early stopping: %d/%d)",
+                self._config['id'] + 1,
+                self._nconf,
+                self._epath,
+                epoch + 1,
+                self._ds_size,
+                self._ds_size,
+                train_loss,
+                val_loss,
+                time.time() - end,
+                es_counter,
+                const.TOLERANCE)
 
-    "continue from chechpoint if pretrained model is present"
-    if args.pretrained_dir:
-        model.load_state_dict(torch.load(args.pretrained_dir))
+            # self._log_tb(losses, epoch, trial_id)
 
-    "if pretrained model is present, continue from left off epoch"
-    try:
-        starting_epoch = int(re.search("_([0-9]+?)\(",
-            args.pretrained_dir).group(1))
-        print("Pretrained model loaded...")
-    except AttributeError:
-        starting_epoch = 0
+            if (epoch + 1) % const.CHECKPOINT_FREQ == 0:
+                logging.info("saving snapshot...")
+                self._save_model(
+                    epoch,
+                    train_loss,
+                    val_loss,
+                    min_loss=min_loss)
+                logging.info("finished saving snapshots")
 
-    "load dataset"
-    dataset = dt.SignalDataset(root_dir=train_dir, transform=transform)
-    dataloader = torch.utils.data.DataLoader(
-            dataset, 
-            batch_size=args.batch_size,
-            shuffle=True)
+        self._log_sheet(epoch, min_loss)
 
-    # testset = dt.SignalDataset(root_dir=test_dir, transform=transform)
-    # testloader = torch.utils.data.DataLoader(
-    #         testset, 
-    #         batch_size=args.batch_size)
+    def _log_sheet(self, epoch, best_val_loss):
+        csv_path = os.path.join(const.RESULT_PATH_PREFIX, const.RESULT_FILENAME)
+        with open(csv_path, 'a+') as csvfile:
+            csv_writer = csv.DictWriter(csvfile, fieldnames=const.FIELD_NAMES)
+            content = copy.deepcopy(self._config)
+            content['model'] = self._m_type
+            content['metric'] = self._metric
+            content['stop_epoch'] = epoch
+            content['best_val_loss'] = best_val_loss
+            csv_writer.writerow(content)
 
-    print('done!')
-    # customized loss function
-    if args.criterion == 'min':
-        criterion = models.MinLoss(device, args.metric)
-    elif args.criterion == 'greedy':
-        criterion = models.GreedyLoss(device, args.metric)
-        # criterion = nn.DataParallel(criterion)
-
-    else:
-        criterion = models.MSELoss(device, args.metric)
-
-    # FIXME: trying random configs for optimizers
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # optimizer = optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
-    # tensorboard writer
-    writer = SummaryWriter(logdir=args.output_dir)
-
-    model_path_prefix = '{}/{}'.format(args.model_dir, args.model)
-
-    # for early stopping
-    # curr_loss = 10000
-    # prev_model = None
-
-    print('Start training...')
-    for epoch in range(starting_epoch, NUM_EPOCHS):
-        train_loss = 0.0
-        test_loss = 0.0 
-        for i, info in tqdm(enumerate(dataloader)):
-            torch.cuda.empty_cache()
-            optimizer.zero_grad()
-
-            loss = run_epoch(info, model, args.model, args.num_sources,
-                    input_dim, device, args.learn_mask, criterion, generator)
-            train_loss += loss
+    def train(self, epoch):
+        "Trains the model for one epoch."
+        self._model.train()
+        for batch_idx, batch in enumerate(self._dl['train']):
+            self._optim.zero_grad()
+            loss = self._compute_loss(batch)
             loss.backward()
-            optimizer.step()
+            self._optim.step()
 
-        # with torch.no_grad():
-        #     for test_data in testloader:
-        #         test_loss += run_epoch(test_data, model, args.model,
-        #                 args.num_sources, input_dim, device, args.learn_mask,
-        #                 criterion)
+            log_size = (self._ds_size // \
+                        self._config['batch_size'] // const.LOG_FREQ)
 
-        # log loss in graph
-        legend_train = 'train_{}_{}_{}({})'.format(args.model, args.dataset,
-                args.criterion, args.job_id)
-        # legend_test = 'validation loss'
-        "RMSE"
-        rmse_loss = torch.sqrt(train_loss / len(dataset))
-        # avg_test_loss = test_loss / len(testset)
+            if (batch_idx + 1) % log_size == 0:
+                logging.info(
+                    "[%2d/%2d] %s, epoch %3d, [%5d/%5d] "
+                    "train loss: %.2f",
+                    self._config['id'] + 1,
+                    self._nconf,
+                    self._epath,
+                    epoch + 1,
+                    batch_idx * self._config['batch_size'],
+                    self._ds_size,
+                    loss.item())
 
-        # if epoch == 0 or epoch % 50 == 0:
-        #     model_path = model_path_prefix + \
-        #             '_checkpoint_{}_{}_{}_{}({}).pth'.format(args.dataset,
-        #                     args.criterion, args.metric, epoch, args.job_id)
-        #     torch.save(model.state_dict(), model_path)
-            # curr_loss = avg_test_loss
+        return loss.item()
 
-        # print('epoch %d, train loss: %.3f, val loss: %.3f' % \
-        #         (epoch + 1, avg_loss, avg_test_loss))
+    def validate(self):
+        "Returns validation loss on the validation set."
+        running_loss = 0.0
+        iters = 0
+        self._model.eval()
+        with torch.no_grad():
+            for batch in self._dl['test']:
+                iters += 1
+                loss = self._compute_loss(batch)
+                running_loss += loss.item()
 
-        print('epoch %d, train loss: %.3f' % \
-                (epoch + 1, rmse_loss))
+        return running_loss / iters
 
-        # writer.add_scalars('data/{}_loss_{}_{}({})'.format(args.model,
-        #     args.metric, args.dataset, args.job_id),
-        # writer.add_scalars('data/loss_{}'.format(args.metric),
-        #     {
-        #        legend_train: avg_loss,
-        #        # legend_test: avg_test_loss,
-        #     }, epoch)
+    def _compute_loss(self, batch):
+        aggregate = batch['aggregate'].to(self._device)
+        if self._m_type in ["VTF", "DETF"]:
+            ground_truths_in = batch['ground_truths_in'].to(self._device)
+            ground_truths = batch['ground_truths_gt'].to(self._device)
 
-    print("Finished training!")
-    writer.close()
+            mask_size = ground_truths_in.shape[1]
+            subseq_mask = custom_transformer.subsequent_mask(
+                mask_size).to(self._device)
+            out = self._model(aggregate, ground_truths_in, None, subseq_mask)
+            prediction = self._model.generator(aggregate, out)
+            loss = self._criterion(prediction, ground_truths)
+        else:
+            ground_truths = batch['ground_truths'].to(self._device)
+            prediction = self._model(aggregate)
+            loss = self._criterion(prediction, ground_truths)
+
+        return loss
+
+    def _log_tb(self, losses, epoch, trial_id):
+        legend_prefix = "{}_{}_{}_{}_{}".format(
+                self._m_type,
+                self.task,
+                self._config['id'],
+            self.catcap,
+                trial_id)
+        self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
+                {
+                    "{}_train".format(legend_prefix): losses['train'],
+                    "{}_val".format(legend_prefix): losses['val'],
+                }, epoch)
+
+    def _save_model(
+            self,
+            epoch,
+            train_loss,
+            val_loss,
+            min_loss=const.MAX_LOSS,
+            best_model=None):
+
+        if best_model is None:
+            model_name = "checkpoint.tar"
+        else:
+            model_name = "best.tar"
+            min_loss = val_loss
+
+        # e.g. results/setup_name/config_0/snapshots/checkpoint.tar
+        # e.g. results/setup_name/config_0/snapshots/best.tar
+        model_path= os.path.join(
+            const.RESULT_PATH_PREFIX,
+            self._epath,
+            self._config['id'],
+            "snapshots",
+            model_name)
+
+        utils.make_dir(model_path)
+
+        # save model
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self._model.state_dict(),
+            'optim_state_dict': self._optim.state_dict(),
+            'train_loss': train_loss,
+            'val_loss': val_loss,
+            'min_loss': min_loss,
+            }, model_path)
+
+        return model_path
+
+    def _init_criterion(self):
+        gamma = 0
+        if self._m_type == "DRNN" or self._m_type == "SRNN":
+            gamma = self._config['gamma']
+
+        if self._config['loss_fn'] == "Greedy":
+            criterion = custom_models.GreedyLoss(
+                self._device,
+                self._metric,
+                gamma,
+                self._nsrc)
+
+        elif self._config['loss_fn'] == "Min":
+            criterion = MinLoss(
+                self._device,
+                self._metric,
+                self._nsrc)
+
+        elif self._config['loss_fn'] == "Discrim":
+            criterion = custom_models.DiscrimLoss(
+                self._device,
+                self._metric,
+                gamma)
+
+        else:
+            logging.error(
+                "loss function %s is not supported",
+                self._config['loss_fn'])
 
 
-if __name__ == '__main__':
-    main()
+        return criterion
+
+    def _init_optim(self):
+        if self._config['optim'] == "SGD":
+            optim = torch.optim.SGD(
+                self._model.parameters(),
+                lr=self._config['lr'],
+                momentum=self._config['momentum'])
+
+        elif self._config['optim'] == "Adam":
+            optim = torch.optim.Adam(
+                self._model.parameters(),
+                lr=self._config['lr'],
+                betas=(self._config['beta1'], self._config['beta2']),
+                eps=self._config['epsilon'])
+
+        else:
+            logging.error(
+                "optimizer %s is not supported",
+                self._config['loss_fn'])
+
+        return optim
+
+    def _init_model(self):
+        """create dataloader and model"""
+
+        def get_loader(ds_name):
+            """get loader based on train/test spec"""
+
+            data_path = os.path.join(
+                const.DATASET_PATH,
+                self._epath.split['_'][0],
+                f"{ds_name}.csv")
+
+            dataset = custom_dataset.MixtureDataset(
+                num_sources=self._nsrc,
+                data_path=data_path,
+                transform=transform)
+
+            dataloader = torch.utils.data.DataLoader(
+                dataset,
+                batch_size=self._config['batch_size'],
+                shuffle=True)
+
+            return dataloader
+
+        if self._m_type == "LSTM":
+            transform = custom_dataset.Wav2Spect('Concat')
+            model = custom_models.B1(
+                input_dim=const.N_FREQ * 2,
+                hidden_size=self._config['hidden_size'],
+                num_sources=self._nsrc).to(self._device)
+
+        elif self._m_type == "GAB":
+            # transform = custom_dataset.ToTensor(
+            #     size=(spect_shape['freq_range'], spect_shape['seq_len']))
+            transform = custom_dataset.Wav2Spect()
+            model = custom_models.LookToListenAudio(
+                input_dim=const.N_FREQ,
+                chan=self._config['chan'],
+                num_sources=self._nsrc).to(self._device)
+
+        elif self._m_type == "VTF":
+            # transform = custom_dataset.Concat(
+            #     size=(spect_shape['freq_range'], spect_shape['seq_len']),
+            #     encdec=True)
+            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
+            model = custom_transformer.make_model(
+                input_dim=const.N_FREQ * 2,
+                N=self._config['N'],
+                d_model=self._config['d_model'],
+                d_ff=self._config['d_ff'],
+                h=self._config['h'],
+                num_sources=self._nsrc,
+                dropout=self._config['dropout']).to(self._device)
+
+        # FIXME: seq_len is temporary
+        elif self._m_type == "DETF":
+            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
+            model = custom_transformer.make_detf(
+                input_dim=const.N_FREQ * 2,
+                seq_len=460,
+                N=self._config['N'],
+                d_model=self._config['d_model'],
+                d_ff=self._config['d_ff'],
+                h=self._config['h'],
+                num_sources=self._nsrc,
+                dropout=self._config['dropout']).to(self._device)
+
+        elif self._m_type == "SRNN":
+            self._config['loss_fn'] = 'Discrim'
+            # self._config['optim'] = 'LBFGS'
+
+            transform = custom_dataset.Wav2Spect('Concat')
+            model = huang_srnn.SRNN(
+                input_dim=const.N_FREQ * 2,
+                num_sources=self._nsrc,
+                hidden_size=self._config['hidden_size'],
+                dropout=self._config['dropout']).to(self._device)
+
+        elif self._m_type == "DRNN":
+            self._config['loss_fn'] = 'Discrim'
+            transform = custom_dataset.Wav2Spect('Concat')
+            model = huang_drnn.DRNN(
+                input_dim=const.N_FREQ * 2,
+                num_sources=self._nsrc,
+                hidden_size=self._config['hidden_size'],
+                k=1,
+                dropout=self._config['dropout']).to(self._device)
+
+        else:
+            logging.error("%s is not supported", self._m_type)
+
+        dataloader = {}
+        dataloader['train'] = get_loader("train")
+        dataloader['test'] = get_loader("val")
+
+        logging.info(
+            "%s using %s as criterion and %s as optimizer",
+            self._m_type,
+            self._config['loss_fn'],
+            self._config['optim'])
+
+        return dataloader, model
+
+    def _load_cp(self):
+        config_id = self._config['id']
+
+        logging.info("loading checkpoint from configuration #%d...", config_id)
+
+        checkpoint_path = os.path.join(
+            self._epath,
+            config_id,
+            "snapshots",
+            "checkpoint.tar")
+
+        # to continue training
+        cp = torch.load(
+            checkpoint_path,
+            map_location=self._device)
+
+        self._model.load_state_dict(cp['model_state_dict'])
+        self._optim.load_state_dict(cp['optim_state_dict'])
+
+        start_epoch = cp['epoch'] + 1
+        min_loss = cp['min_loss']
+
+        logging.info("checkpoint loaded")
+
+        return start_epoch, min_loss
+
+
+# if __name__ == '__main__':
+#     main()

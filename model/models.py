@@ -170,10 +170,6 @@ class DiscrimLoss(nn.Module):
         return dists
 
 
-# class MinLoss(nn.Module):
-#     pass
-
-
 class GreedyLoss(nn.Module):
     """Custom loss function #1
 
@@ -191,22 +187,26 @@ class GreedyLoss(nn.Module):
     def forward(self, predictions, ground_truths):
         """
         Args:
-            prediction: bs, seq_len, num_sources, input_dim
+            predictions: bs, seq_len, num_sources, input_dim
             ground_truths: bs, seq_len, num_sources, input_dim
         Returns:
             loss: [bs,]
         """
-        bs = predictions.size()[0]
 
         # get distance measure (bs * num_sources)
-        dists = get_min_dist(predictions, ground_truths, self.device,
-                             self.metric)
+        dists = get_min_dist(
+            predictions,
+            ground_truths,
+            self.device,
+            self.metric)
 
-        sum_ = torch.sum(dists, 1) / self.num_sources
-        # greedy RMSE
-        loss = torch.sqrt((sum_ ** 2).mean())
+        # losses across instances, normalized wrt nsrc
+        avg_dists = dists.mean(dim=1)
 
-        return torch.log(loss)
+        # MSE
+        loss = (avg_dists ** 2).mean()
+
+        return loss
 
 
 class A1(nn.Module):
@@ -232,18 +232,17 @@ class A1(nn.Module):
 class B1(nn.Module):
     '''LSTM baseline with residual connection'''
 
-    def __init__(self,
+    def __init__(
+            self,
             input_dim,
-            hidden_size, 
+            hidden_size,
             num_layers=NUM_LAYERS,
-            seq_len=SEQ_LEN,
             num_sources=NUM_SOURCES):
 
         super().__init__()
         self.input_dim = input_dim
         self.num_layers = num_layers
         self.num_sources = num_sources
-        self.seq_len = seq_len
         self.lstm = nn.LSTM(input_dim, hidden_size, batch_first=True)
         self.fc0 = nn.Linear(input_dim, input_dim, bias=True)
         self.fc1 = nn.Linear(hidden_size, num_sources * input_dim, bias=True)
@@ -319,7 +318,7 @@ class LookToListenAudio(nn.Module):
 
             rpad = dilation[0] * (kernel_size[0] - 1) // 2
             cpad = dilation[1] * (kernel_size[1] - 1) // 2
-            padding= [rpad, cpad]
+            padding = [rpad, cpad]
 
             conv = nn.Conv2d(in_chan, out_chan, kernel_size=kernel_size,
                     dilation=dilation, padding=padding)
