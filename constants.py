@@ -6,7 +6,7 @@ import numpy as np
 
 
 ROOT_DIR = "/home/ubuntu/"
-TRAIN_SCALE = 1e4
+TRAIN_SCALE = 10000
 DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
 RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/results")
 DATASET_PATH = '/home/ubuntu/datasets/processed/datagen/'
@@ -20,9 +20,9 @@ LOG_FREQ = 10
 CHECKPOINT_FREQ = 1
 
 MAX_LOSS = np.inf
-UM_CONFIGS = 10
+NUM_CONFIGS = 10
 NUM_TRIALS = 1
-TOLERANCE = 1000  # for early stopping
+TOLERANCE = 50 # for early stopping
 
 FIELD_NAMES = [
     'id',

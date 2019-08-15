@@ -9,6 +9,7 @@ import torch.optim
 import utils
 import constants as const
 
+# FIXME: module rename
 import model.dataset as custom_dataset
 import model.models as custom_models
 import model.transformer as custom_transformer
@@ -22,7 +23,7 @@ logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
 class Trainer():
     """Trainer object that runs through a single experiment"""
-    def __init__(self, setup, config, experiment_path, has_checkpoint=False):
+    def __init__(self, setup, config, experiment_path, load_checkpoint=False):
 
         self._device = setup['device']
         self._ds_type = setup['dataset_type']
@@ -35,7 +36,7 @@ class Trainer():
 
         self._config = config
         self._epath = experiment_path
-        self._cp = has_checkpoint
+        self._cp = load_checkpoint
 
         self._ds_size = self._nsrc * const.TRAIN_SCALE
         # self.tb_writer = tb_writer
@@ -137,6 +138,7 @@ class Trainer():
             content['metric'] = self._metric
             content['stop_epoch'] = epoch
             content['best_val_loss'] = best_val_loss
+            content['experiment_path'] = self._epath
             csv_writer.writerow(content)
 
     def train(self, epoch):
@@ -153,7 +155,7 @@ class Trainer():
 
             if (batch_idx + 1) % log_size == 0:
                 logging.info(
-                    "[%2d/%2d] %s, epoch %3d, [%5d/%5d] "
+                    "[%2d/%2d] %s: epoch %3d, [%5d/%5d] "
                     "train loss: %.2f",
                     self._config['id'] + 1,
                     self._nconf,
@@ -226,10 +228,10 @@ class Trainer():
 
         # e.g. results/setup_name/config_0/snapshots/checkpoint.tar
         # e.g. results/setup_name/config_0/snapshots/best.tar
-        model_path= os.path.join(
+        model_path = os.path.join(
             const.RESULT_PATH_PREFIX,
             self._epath,
-            self._config['id'],
+            str(self._config['id']),
             "snapshots",
             model_name)
 
@@ -256,7 +258,6 @@ class Trainer():
             criterion = custom_models.GreedyLoss(
                 self._device,
                 self._metric,
-                gamma,
                 self._nsrc)
 
         elif self._config['loss_fn'] == "Min":
@@ -308,7 +309,7 @@ class Trainer():
 
             data_path = os.path.join(
                 const.DATASET_PATH,
-                self._epath.split['_'][0],
+                self._epath.split('_')[0],
                 f"{ds_name}.csv")
 
             dataset = custom_dataset.MixtureDataset(
@@ -368,7 +369,6 @@ class Trainer():
 
         elif self._m_type == "SRNN":
             self._config['loss_fn'] = 'Discrim'
-            # self._config['optim'] = 'LBFGS'
 
             transform = custom_dataset.Wav2Spect('Concat')
             model = huang_srnn.SRNN(
@@ -408,8 +408,9 @@ class Trainer():
         logging.info("loading checkpoint from configuration #%d...", config_id)
 
         checkpoint_path = os.path.join(
+            const.RESULT_PATH_PREFIX,
             self._epath,
-            config_id,
+            str(config_id),
             "snapshots",
             "checkpoint.tar")
 

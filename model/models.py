@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from tensorboardX import SummaryWriter
 import scipy.spatial.distance as ssdist
 
 
@@ -50,7 +49,7 @@ def get_matches(orders):
             orders[batch, indices[0], :] = np.ones(d) * mask
             orders[batch, :, indices[1]] = np.ones(d) * mask
 
-    return matched_pairs
+    return list(matched_pairs.astype(int))
 
 
 def reshape(x, seq_len, bs):
@@ -89,7 +88,7 @@ def get_correlation(m1, m2):
     return -(1 - n / d)
 
 
-def get_min_dist(preds, gts, device, metric):
+def get_loss(preds, gts, device, metric):
     """
     Args:
         preds(tensor): [bs, seq_len, n_sources, input_dim]
@@ -98,7 +97,7 @@ def get_min_dist(preds, gts, device, metric):
     Returns:
         dists: [bs, n_sources]
     """
-    bs, _, n_sources, _ = preds.size()
+    bs, seq_len, n_sources, input_dim = preds.size()
 
     # getting the distances from each prediction to all gts
     all_dists = get_dists(preds, gts, bs, n_sources, metric)
@@ -115,11 +114,18 @@ def get_min_dist(preds, gts, device, metric):
             if metric == 'correlation':
                 dist = get_correlation(pred, gt_match)
             else:
-                dist = torch.norm(pred - gt_match)
+                dist = torch.norm((pred - gt_match) / (seq_len * input_dim))
 
             dists[b, src_id] = dist
 
+    # for b in range(bs):
+    #     gts[b] = gts[b, :, all_matches[b]]
+
+    # mse = nn.MSELoss()
+    # loss = mse(preds, gts)
     return dists
+
+    # return loss
 
 
 class DiscrimLoss(nn.Module):
@@ -147,15 +153,17 @@ class DiscrimLoss(nn.Module):
 
         penalties = self.gamma * \
             self._calc_dists(pred_swapped, ground_truths)
-        sum_ = torch.sum(dists, 1) ** 2 + torch.sum(penalties, 1) ** 2
+        # sum_ = torch.sum(dists, 1) ** 2 + torch.sum(penalties, 1) ** 2
 
         # loss = torch.sum(dists)
-        loss = torch.log(torch.sqrt(sum_.mean()))
+        # loss = torch.log(torch.sqrt(sum_.mean()))
 
-        return loss
+        return dists.mean() + penalties.mean()
+
+        # return mse(predictions, ground_truths) + penalty
 
     def _calc_dists(self, preds, gts):
-        bs, _, n_sources, _ = preds.size()
+        bs, seq_len, n_sources, input_dim = preds.size()
         dists = torch.zeros(bs, n_sources).to(self.device)
 
         for b in range(bs):
@@ -165,7 +173,7 @@ class DiscrimLoss(nn.Module):
                 if self.metric == 'correlation':
                     dist = get_correlation(pred[b], gt_match[b])
                 else:
-                    dist = torch.norm(pred[b] - gt_match[b])
+                    dist = torch.norm((pred[b] - gt_match[b]) / (seq_len * input_dim))
                 dists[b, src_id] = dist
         return dists
 
@@ -176,12 +184,11 @@ class GreedyLoss(nn.Module):
     Compare the distance from output with its closest ground truth.
 
     """
-    def __init__(self, device, metric, gamma, num_sources):
+    def __init__(self, device, metric, num_sources):
         # nn.Module.__init__(self)
-        super(GreedyLoss, self).__init__()
+        super().__init__()
         self.device = device
         self.metric = metric
-        self.gamma = gamma
         self.num_sources = num_sources
 
     def forward(self, predictions, ground_truths):
@@ -193,19 +200,10 @@ class GreedyLoss(nn.Module):
             loss: [bs,]
         """
 
-        # get distance measure (bs * num_sources)
-        dists = get_min_dist(
-            predictions,
-            ground_truths,
-            self.device,
-            self.metric)
+        # dists = get_loss
+        dists = get_loss(predictions, ground_truths, self.device, self.metric)
 
-        # losses across instances, normalized wrt nsrc
-        avg_dists = dists.mean(dim=1)
-
-        # MSE
-        loss = (avg_dists ** 2).mean()
-
+        loss = dists.mean()
         return loss
 
 

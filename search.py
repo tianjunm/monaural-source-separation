@@ -8,9 +8,7 @@ import os
 import random
 import time
 import torch
-from tqdm import tqdm
 # from tensorboardX import SummaryWriter as tensorboard_writer
-# FIXME: module rename
 import train
 import utils
 import constants as const
@@ -27,9 +25,9 @@ def get_argument():
     parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--model_type', type=str)
     parser.add_argument('--metric', type=str)
-    parser.add_argument('--dataset_type', type=int)
-    parser.add_argument('--num_sources', type=str)
-    parser.add_argument('--category_range', type=str)
+    parser.add_argument('--dataset_type', type=int, default=1)
+    parser.add_argument('--num_sources', type=int)
+    parser.add_argument('--category_range', type=int)
 
     # checkpointing, allowing two options:
     # 1. continue from the last seen epoch of the last seen config
@@ -91,6 +89,7 @@ def fetch_progress(experiment_path, start_over=False):
     """Continue from where the experiment was left off."""
 
     progress_log = os.path.abspath(os.path.join(
+        const.RESULT_PATH_PREFIX,
         experiment_path,
         'progress.tar'))
 
@@ -114,23 +113,23 @@ def get_param_grid():
 
     grid = {
         'max_epochs': [300, 400, 500],
-        'lrs': [.001, .005, .003],
-        'optims': ['SGD', 'Adam', 'Adam'],
+        'lrs': [0.001, 0.0005, 0.003],
+        'optims': ['Adam'],
         'loss_fns': ['Greedy'],
-        'batch_sizes': [16, 64, 128],
-        'dropouts': [.1, .3, .5],
-        'momentums': [.0, .5, .9],
-        'beta1s': [.9, .95, 99],
-        'beta2s': [.98, .99, .999],
+        'batch_sizes': [4, 16, 64],
+        'dropouts': [0.1, 0.3, 0.5],
+        'momentums': [0.0, 0.5, 0.9],
+        'beta1s': [0.9, 0.95, 0.99],
+        'beta2s': [0.98, 0.99, 0.999],
         'epsilons': [1e-8, 1e-9],
         'hidden_sizes': [32, 128, 512],
         'in_chans': [4, 16],
-        'chans': [4, 16, 64],
+        'chans': [4, 16],
         'Ns': [3, 4],
         'hs': [4],
-        'd_models': [128, 256],
+        'd_models': [64, 128],
         'd_ffs': [64, 128],
-        'gammas': [.01, .05, .1],
+        'gammas': [0.01, 0.05, 0.1],
         }
 
     return grid
@@ -150,11 +149,13 @@ def select_config(config_id, param_grid):
 def save_config(experiment_path, config_id, config):
     """Saves the configuration"""
     config_path = os.path.abspath(os.path.join(
+        const.RESULT_PATH_PREFIX,
         experiment_path,
-        config_id,
+        str(config_id),
         "config.tar"))
 
     progress_log = os.path.abspath(os.path.join(
+        const.RESULT_PATH_PREFIX,
         experiment_path,
         'progress.tar'))
 
@@ -179,14 +180,14 @@ def run_config(
         experiment_setup,
         config,
         start_trial=0,
-        has_checkpoint=False):
+        load_checkpoint=False):
     """Train with the given configuration."""
 
     trainer = train.Trainer(
         setup=experiment_setup,
         config=config,
         experiment_path=experiment_path,
-        has_checkpoint=has_checkpoint)
+        load_checkpoint=load_checkpoint)
 
     # run the experiment [num_trials] times
     for trial_id in range(start_trial, const.NUM_TRIALS):
@@ -212,23 +213,25 @@ def run_configs(
         experiment_path,
         experiment_setup,
         param_grid,
-        start_config_id=0):
+        start_config_id=0,
+        has_checkpoint=False):
     """Run the random search experiment and log the results."""
 
-    num_configs = experiment_setup['nconf']
+    num_configs = experiment_setup['num_configs']
     assert start_config_id < num_configs
 
-    if start_config_id > 0:
+    if has_checkpoint:
         config = load_config(os.path.join(
+            const.RESULT_PATH_PREFIX,
             experiment_path,
-            start_config_id,
+            str(start_config_id),
             "config.tar"))
 
         run_config(
             experiment_path,
             experiment_setup,
             config,
-            has_checkpoint=True)
+            load_checkpoint=True)
 
         # start fresh with the next config
         start_config_id += 1
@@ -293,7 +296,8 @@ def main():
             experiment_path,
             experiment_setup,
             param_grid,
-            start_config_id)
+            start_config_id,
+            has_checkpoint=True)
 
     # no checkpoint, start fresh
     else:

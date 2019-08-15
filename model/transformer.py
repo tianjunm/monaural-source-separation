@@ -102,12 +102,14 @@ def make_detf(
 
     position = PositionalEncoding(d_model, dropout)
     # FIXME: experimenting with num_sources
-    model = EncoderDecoder(
-        DoubleEncoder(
-            EncoderLayer(d_model, c(attn), c(ff), dropout),
-            EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
+    model = DoubleEncoderDecoder(
+        # DoubleEncoder(
+        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+        Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
+            # N),
         Decoder(
-            DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout),
+            N),
         nn.Sequential(Embeddings(d_model, input_dim), c(position)),
         nn.Sequential(
             Embeddings(d_model, input_dim, num_sources=num_sources),
@@ -385,7 +387,7 @@ class Encoder(nn.Module):
 class DoubleEncoder(nn.Module):
     "Core encoder is a stack of N layers"
     def __init__(self, layer, layer_t, N):
-        super(DEncoder, self).__init__()
+        super(DoubleEncoder, self).__init__()
         self.layers = clones(layer, N)
         self.layer_ts = clones(layer_t, N)
         self.norm = LayerNorm(layer.size)

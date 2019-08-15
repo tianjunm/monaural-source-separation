@@ -31,8 +31,7 @@ def get_spect(wav, ttype):
         wav_arr,
         WINDOW_SIZE,
         HOP_LENGTH,
-        window=torch.hann_window(256),
-        normalized=True).permute(2, 1, 0)
+        window=torch.hann_window(256)).permute(2, 1, 0)
 
     if ttype == 'Concat':
         return torch.cat([spect[0], spect[1]], dim=-1)
@@ -86,7 +85,7 @@ class MixtureDataset(Dataset):
         # load original files according to filenames
         filename = instances.at[iid, 'filename']
         dur = instances.at[iid, 'clip_duration']
-        start = instances.at[iid, 'start_time']
+        start = instances.at[iid, 'mixture_placement']
         # start, end = parse_range(instances.at[iid, 'mixture_placement'])
         # print(filename)
 

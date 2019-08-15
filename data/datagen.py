@@ -465,7 +465,7 @@ class Dataset():
         """Inserts a row into the result dataset."""
         self._dataset['filename'].append(info['filename'])
         self._dataset['clip_duration'].append(info['duration'])
-        self._dataset['mixture_placement'].append(info['placement'])
+        self._dataset['mixture_placement'].append(info['start_time'])
         self._dataset['category'].append(info['category'])
 
     def export(self, ds_name, nsrc, ncat, ds_type=1):
