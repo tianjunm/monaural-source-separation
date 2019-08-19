@@ -18,7 +18,7 @@ import model.drnn as huang_drnn
 from model.min_loss import MinLoss
 
 
-logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 
 
 class Trainer():
@@ -182,21 +182,30 @@ class Trainer():
 
     def _compute_loss(self, batch):
         aggregate = batch['aggregate'].to(self._device)
-        if self._m_type in ["VTF", "DETF"]:
-            ground_truths_in = batch['ground_truths_in'].to(self._device)
-            ground_truths = batch['ground_truths_gt'].to(self._device)
-
-            mask_size = ground_truths_in.shape[1]
-            subseq_mask = custom_transformer.subsequent_mask(
-                mask_size).to(self._device)
-            out = self._model(aggregate, ground_truths_in, None, subseq_mask)
-            prediction = self._model.generator(aggregate, out)
-            loss = self._criterion(prediction, ground_truths)
-        else:
+        if self._m_type in ["SRNN", "DRNN", "LSTM", "GAB"]:
             ground_truths = batch['ground_truths'].to(self._device)
             prediction = self._model(aggregate)
             loss = self._criterion(prediction, ground_truths)
 
+        # STT1, STT2, STT3
+        else:
+            in_gts = batch['ground_truths_in'].to(self._device)
+            cmp_gts = batch['ground_truths_gt'].to(self._device)
+
+            mask_size = in_gts.shape[1]
+            subseq_mask = custom_transformer.subsequent_mask(
+                mask_size).to(self._device)
+
+            if self._m_type in ["STT1", "STT2"]:
+                out = self._model(aggregate, in_gts, None, subseq_mask)
+                prediction = self._model.generator(aggregate, out)
+            else:  # STT3
+                prediction = self._model(
+                    aggregate,
+                    in_gts,
+                    None,
+                    subseq_mask)
+            loss = self._criterion(prediction, cmp_gts)
         return loss
 
     def _log_tb(self, losses, epoch, trial_id):
@@ -311,6 +320,7 @@ class Trainer():
                 const.DATASET_PATH,
                 self._epath.split('_')[0],
                 f"{ds_name}.csv")
+            logging.debug("%s", data_path)
 
             dataset = custom_dataset.MixtureDataset(
                 num_sources=self._nsrc,
@@ -355,11 +365,16 @@ class Trainer():
                 dropout=self._config['dropout']).to(self._device)
 
         # FIXME: seq_len is temporary
-        elif self._m_type == "DETF":
+        elif self._m_type in ["STT1", "STT2", "STT3"]:
+            # if self._m_type == "STT3":
+            #     transform = custom_dataset.Wav2Spect('Separate', enc_dec=True)
+            # else:
             transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
-            model = custom_transformer.make_detf(
+
+            model = custom_transformer.make_stt(
                 input_dim=const.N_FREQ * 2,
                 seq_len=460,
+                stt_type=self._m_type,
                 N=self._config['N'],
                 d_model=self._config['d_model'],
                 d_ff=self._config['d_ff'],
@@ -368,8 +383,8 @@ class Trainer():
                 dropout=self._config['dropout']).to(self._device)
 
         elif self._m_type == "SRNN":
-            self._config['loss_fn'] = 'Discrim'
-
+            # self._config['loss_fn'] = 'Discrim'
+            self._config['optim'] = 'SGD'
             transform = custom_dataset.Wav2Spect('Concat')
             model = huang_srnn.SRNN(
                 input_dim=const.N_FREQ * 2,
@@ -378,7 +393,8 @@ class Trainer():
                 dropout=self._config['dropout']).to(self._device)
 
         elif self._m_type == "DRNN":
-            self._config['loss_fn'] = 'Discrim'
+            # self._config['loss_fn'] = 'Discrim'
+            # self._config['optim'] = 'SGD'
             transform = custom_dataset.Wav2Spect('Concat')
             model = huang_drnn.DRNN(
                 input_dim=const.N_FREQ * 2,

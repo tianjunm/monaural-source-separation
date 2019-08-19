@@ -38,6 +38,7 @@ def get_arguments():
     parser = argparse.ArgumentParser(description='Dataset creation script')
     # arguments
     # parser.add_argument('--raw_data_dir', type=str, required=True)
+    parser.add_argument('--dataset_type', type=int, default=1)
     parser.add_argument('--metadata_path', type=str, required=True)
     parser.add_argument('--num_categories', type=int, required=True)
     parser.add_argument('--num_sources', type=int, default=2)
@@ -387,10 +388,21 @@ def create_dir(outdir):
                 raise
 
 
-def sample_categories(metadata, ncat):
+def sample_categories(metadata, ncat, ds_type=1):
     """Samples ncat categories from all categories presented in metadata."""
     all_cats = metadata.label.unique()
-    ids = random.sample(range(len(all_cats)), ncat)
+
+    if ds_type == 1:
+        ids = random.sample(range(len(all_cats)), ncat)
+
+    elif ds_type == 2:
+        ids = [random.randint(0, len(all_cats) - 1)] * ncat
+
+    else:
+        ids = []
+        for _ in range(ncat):
+            ids.append(random.randint(0, len(all_cats) - 1))
+
     return all_cats[ids]
 
 
@@ -491,8 +503,10 @@ class DataGenerator(object):
             mixture_duration,
             dataset_path,
             num_categories,
+            dataset_type=1,
             types_to_generate=['train', 'val', 'test']):
 
+        self._ds_type = dataset_type
         self._nsrc = num_sources
         self._split = train_val_test_split
         self._data = selected_data
@@ -517,8 +531,9 @@ class DataGenerator(object):
         dsize = self._split['sizes'][dtype]
 
         for _ in tqdm(range(dsize)):
-            # choose [nsrc] distinct categories from the given dataframe
-            cats = sample_categories(self._data, self._nsrc)
+            # choose [nsrc] distinct, same, or mixed
+            # categories from the given dataframe
+            cats = sample_categories(self._data, self._nsrc, self._ds_type)
 
             # for each chosen category for this training instance,
             # choose a sound file from the sounds of that category
@@ -530,7 +545,7 @@ class DataGenerator(object):
                 info = self._pick_and_drop(chosen)
                 self._dataset.insert(info)
 
-        self._dataset.export(dtype, self._nsrc, self._ncat)
+        self._dataset.export(dtype, self._nsrc, self._ncat, self._ds_type)
         self._dataset.reset()
 
         logging.info('finished generating the %s set!', dtype)
@@ -618,7 +633,8 @@ def main():
         args.max_clip_duration,
         args.mixture_duration,
         args.dataset_path,
-        args.num_categories)
+        args.num_categories,
+        args.dataset_type)
         # types_to_generate=['test'])
 
     generator.generate()

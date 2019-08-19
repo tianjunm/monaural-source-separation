@@ -34,7 +34,7 @@ def get_argument():
     # 2. startover from the last seen config
     parser.add_argument("--load_checkpoint", type=bool)
     parser.add_argument('--experiment_id', type=str, default=None)
-    parser.add_argument('--start_over', type=bool, default=False)
+    parser.add_argument('--cont', type=bool, default=False)
 
     # single configuration
     # 1. repeat a particular config
@@ -85,7 +85,7 @@ def write_header():
         csv_writer.writeheader()
 
 
-def fetch_progress(experiment_path, start_over=False):
+def fetch_progress(experiment_path):
     """Continue from where the experiment was left off."""
 
     progress_log = os.path.abspath(os.path.join(
@@ -94,16 +94,6 @@ def fetch_progress(experiment_path, start_over=False):
         'progress.tar'))
 
     start_config_id = torch.load(progress_log)['curr_id']
-
-    # recovery_info = {
-    #     'all_configs': configs_to_run,
-    #     # 'start_trial': trial_progress,
-    #     'checkpoint_path': os.path.join(
-    #         setup_path,
-    #         "config_{}".format(config_progress),
-    #         "snapshots/checkpoint.tar"),
-    #     'load_checkpoint': load_checkpoint,
-    #     }
 
     return start_config_id
 
@@ -125,9 +115,9 @@ def get_param_grid():
         'hidden_sizes': [32, 128, 512],
         'in_chans': [4, 16],
         'chans': [4, 16],
-        'Ns': [3, 4],
-        'hs': [4],
-        'd_models': [64, 128],
+        'Ns': [2, 3, 4, 6],
+        'hs': [2, 4, 8],
+        'd_models': [64, 256],
         'd_ffs': [64, 128],
         'gammas': [0.01, 0.05, 0.1],
         }
@@ -220,7 +210,10 @@ def run_configs(
     num_configs = experiment_setup['num_configs']
     assert start_config_id < num_configs
 
+
+    logging.debug("has checkpoint: %s", has_checkpoint)
     if has_checkpoint:
+        logging.debug("has checkpoint")
         config = load_config(os.path.join(
             const.RESULT_PATH_PREFIX,
             experiment_path,
@@ -285,11 +278,11 @@ def main():
         run_config(experiment_path, experiment_setup, config)
 
     # loading from checkpoint to finish the rest of [num_configs]
-    if args.load_checkpoint:
+    elif args.load_checkpoint:
         logging.info("resuming from interrupted experiment...")
 
         # the unfinished config if it exists
-        start_config_id = fetch_progress(experiment_path, args.start_over)
+        start_config_id = fetch_progress(experiment_path)
         logging.info("found partial results")
 
         run_configs(
@@ -297,7 +290,7 @@ def main():
             experiment_setup,
             param_grid,
             start_config_id,
-            has_checkpoint=True)
+            has_checkpoint=args.cont)
 
     # no checkpoint, start fresh
     else:

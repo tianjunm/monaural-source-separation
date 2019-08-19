@@ -33,7 +33,7 @@ class DRNN(nn.Module):
         x = x.view(batch_size, -1, self.num_sources, self.input_dim)
         # smoothing
         noms = torch.norm(x, dim=-1)
-        denoms = torch.sum(torch.norm(x, dim=-1), dim=-1)
+        denoms = torch.sum(torch.norm(x, dim=-1), dim=-1) + 1
         mask = noms / denoms.unsqueeze(-1)
         ys = mask.unsqueeze(-1) * x
         return ys

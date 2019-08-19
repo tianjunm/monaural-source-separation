@@ -22,7 +22,7 @@ CHECKPOINT_FREQ = 1
 MAX_LOSS = np.inf
 NUM_CONFIGS = 10
 NUM_TRIALS = 1
-TOLERANCE = 50 # for early stopping
+TOLERANCE = 15 # for early stopping
 
 FIELD_NAMES = [
     'id',

@@ -83,9 +83,10 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
     return model
 
 
-def make_detf(
+def make_stt(
         input_dim,
         seq_len,
+        stt_type="STT1",
         N=3,
         d_model=D_MODEL,
         d_ff=D_FF,
@@ -102,19 +103,60 @@ def make_detf(
 
     position = PositionalEncoding(d_model, dropout)
     # FIXME: experimenting with num_sources
-    model = DoubleEncoderDecoder(
-        # DoubleEncoder(
-        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-        Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
-            # N),
-        Decoder(
-            DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout),
-            N),
-        nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-        nn.Sequential(
-            Embeddings(d_model, input_dim, num_sources=num_sources),
-            c(position)),
-        Generator(d_model, input_dim, num_sources=num_sources))
+    if stt_type == "STT1":
+        model = EncoderDecoder(
+            DoubleEncoder(
+                EncoderLayer(d_model, c(attn), c(ff), dropout),
+                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources),
+                c(position)),
+            Generator(d_model, input_dim, num_sources=num_sources))
+
+    elif stt_type == "STT2":
+        model = EncoderTF(
+            DoubleEncoder(
+                EncoderLayer(d_model, c(attn), c(ff), dropout),
+                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
+                2 * N),
+            nn.Sequential(
+                Embeddings(d_model, input_dim),
+                c(position)),
+            Generator(d_model, input_dim, num_sources=num_sources))
+
+    elif stt_type == "STT3":
+        decoders = []
+        embeddings = []
+        generators = []
+
+        for _ in range(num_sources):
+            decoders.append(
+                Decoder(
+                    DecoderLayer(
+                        d_model,
+                        c(attn),
+                        c(attn),
+                        c(ff),
+                        dropout),
+                    N))
+            embeddings.append(
+                nn.Sequential(
+                    Embeddings(d_model, input_dim, num_sources=1),
+                    c(position)))
+            generators.append(Generator(d_model, input_dim, num_sources=1))
+
+        model = MultiOutputEncoderDecoder(
+            DoubleEncoder(
+                EncoderLayer(d_model, c(attn), c(ff), dropout),
+                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
+                N),
+            decoders,
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            embeddings,
+            generators)
 
     # This was important from their code.
     # Initialize parameters with Glorot / fan_avg.
@@ -158,7 +200,7 @@ class Generator(nn.Module):
         s = min(agg.shape[1], x.shape[1])
 
         _, seq_len, input_dim = agg.shape
-        # sep_mask = F.log_softmax(self.proj(x), dim=-1).view(-1, 
+        # sep_mask = F.log_softmax(self.proj(x), dim=-1).view(-1,
         #         seq_len + 1, self.n_sources, input_dim)[:, :-1]
         output = self.proj(x)[:, :s].view(-1, s, self.n_sources,
                 input_dim)
@@ -166,7 +208,7 @@ class Generator(nn.Module):
         # print(output.shape)
         # print(sep_mask.shape)
         if learn_mask:
-            return agg[:, :s].unsqueeze(2) * output[:, :s] 
+            return agg[:, :s].unsqueeze(2) * output[:, :s]
         else:
             return output[:, :s]
 
@@ -291,6 +333,17 @@ class Embeddings(nn.Module):
         return self.lut(x) * math.sqrt(self.d_model)
 
 
+# class GroupEmbedding(nn.Module):
+#     def __init__(self, embeddings):
+#         super(GroupEmbedding, self).__init__()
+
+#     def forward(self, in_gts):
+#         src_embeds = []
+#         for i, in_gt in enumerate(in_gts):
+#             src_embeds.append(embeddings[i](in_gt))
+
+#         return src_embeds
+
 class PositionalEncoding(nn.Module):
     "Implement the PE function."
     def __init__(self, d_model, dropout, max_len=5000):
@@ -339,6 +392,60 @@ class EncoderDecoder(nn.Module):
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+
+
+class EncoderTF(nn.Module):
+    """Encoder-only transformer"""
+
+    def __init__(self, encoder, src_embed, generator):
+        super(EncoderTF, self).__init__()
+        self.encoder = encoder
+        self.src_embed = src_embed
+        self.generator = generator
+
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        "Take in and process masked src and target sequences."
+        return self.encode(src, src_mask)
+
+    def encode(self, src, src_mask):
+        embedded = self.src_embed(src)
+        return self.encoder(embedded, src_mask)
+
+
+class MultiOutputEncoderDecoder(nn.Module):
+    """Multi-decoder transformer"""
+    def __init__(self, encoder, decoders, src_embed, tgt_embeds, generators):
+        super(MultiOutputEncoderDecoder, self).__init__()
+        self.encoder = encoder
+        self.decoders = nn.ModuleList(decoders)
+        self.src_embed = src_embed
+        self.tgt_embeds = nn.ModuleList(tgt_embeds)
+        self.generators = nn.ModuleList(generators)
+
+    def forward(self, src, tgts, src_mask, tgt_mask):
+        "Take in and process masked src and target sequences."
+        return self.decode(
+            src,
+            self.encode(src, src_mask),
+            src_mask,
+            tgts,
+            tgt_mask)
+
+    def encode(self, src, src_mask):
+        embedded = self.src_embed(src)
+        return self.encoder(embedded, src_mask)
+
+    def decode(self, aggregate, memory, src_mask, tgts, tgt_mask):
+        _, _, input_dim = aggregate.shape
+        preds = []
+        for i, decoder in enumerate(self.decoders):
+            tgt = tgts[:, :, i * input_dim:(i + 1) * input_dim]
+            tgt_embed = self.tgt_embeds[i]
+            generator = self.generators[i]
+
+            out = decoder(tgt_embed(tgt), memory, src_mask, tgt_mask)
+            preds.append(generator(aggregate, out))
+        return torch.cat(preds, dim=2)
 
 
 class DoubleEncoderDecoder(nn.Module):

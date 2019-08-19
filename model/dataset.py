@@ -107,12 +107,13 @@ class MixtureDataset(Dataset):
 class Wav2Spect():
     """Transforms wave forms to spectrogram tensors"""
 
-    def __init__(self, tensor_type=None, enc_dec=False):
-        self._ttype = tensor_type
+    def __init__(self, agg_type=None, enc_dec=False):
+        self._ttype = agg_type
+        # self._gt_type = in_gts_type
         self._ed = enc_dec
 
     def __call__(self, item):
-        transformed = {'aggregate': None, 'ground_truths': []}
+        transformed = {'aggregate': None, 'ground_truths': None}
         transformed['aggregate'] = get_spect(item['aggregate'], self._ttype)
 
         gts = []
@@ -126,6 +127,9 @@ class Wav2Spect():
             seq_len, nsrc, input_dim = transformed['ground_truths'].shape
             # ground truths preceded by start symbols
             # combine last 2 dimensions
+            # if self._gt_type == "STT3":
+            #    start = torch.ones(1, input_dim)
+            #    transformed['ground_truths'][:, :, s]
             start = torch.ones(1, nsrc * input_dim)
             # end = torch.zeros(1, n_sources, input_dim)
             gts_reshape = transformed['ground_truths'].view(seq_len, nsrc * input_dim)
@@ -133,7 +137,7 @@ class Wav2Spect():
             tgt_in = torch.cat([start, gts_reshape])
             # [nbatch, seq_len+1, n_sources, input_dim]
             # tgt_gt = torch.cat([gts, end])
-            transformed['ground_truths_in'] = torch.Tensor(tgt_in)
+            transformed['ground_truths_in'] = tgt_in.clone()
             transformed['ground_truths_gt'] = transformed['ground_truths']
         return transformed
 

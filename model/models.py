@@ -99,6 +99,7 @@ def get_loss(preds, gts, device, metric):
     """
     bs, seq_len, n_sources, input_dim = preds.size()
 
+    norm_factor = np.sqrt(seq_len * input_dim)
     # getting the distances from each prediction to all gts
     all_dists = get_dists(preds, gts, bs, n_sources, metric)
     all_orders = get_orders(all_dists)
@@ -114,7 +115,7 @@ def get_loss(preds, gts, device, metric):
             if metric == 'correlation':
                 dist = get_correlation(pred, gt_match)
             else:
-                dist = torch.norm((pred - gt_match) / (seq_len * input_dim))
+                dist = torch.norm((pred - gt_match) / norm_factor)
 
             dists[b, src_id] = dist
 
@@ -164,6 +165,7 @@ class DiscrimLoss(nn.Module):
 
     def _calc_dists(self, preds, gts):
         bs, seq_len, n_sources, input_dim = preds.size()
+        norm_factor = np.sqrt(seq_len * input_dim)
         dists = torch.zeros(bs, n_sources).to(self.device)
 
         for b in range(bs):
@@ -173,7 +175,8 @@ class DiscrimLoss(nn.Module):
                 if self.metric == 'correlation':
                     dist = get_correlation(pred[b], gt_match[b])
                 else:
-                    dist = torch.norm((pred[b] - gt_match[b]) / (seq_len * input_dim))
+                    norm_factor = torch.sqrt(torch.Tensor(seq_len * input_dim))
+                    dist = torch.norm((pred - gt_match) / norm_factor)
                 dists[b, src_id] = dist
         return dists
 
