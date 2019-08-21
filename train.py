@@ -15,6 +15,7 @@ import model.models as custom_models
 import model.transformer as custom_transformer
 import model.srnn as huang_srnn
 import model.drnn as huang_drnn
+import model.csa_lstm as csa_lstm
 from model.min_loss import MinLoss
 
 
@@ -182,7 +183,7 @@ class Trainer():
 
     def _compute_loss(self, batch):
         aggregate = batch['aggregate'].to(self._device)
-        if self._m_type in ["SRNN", "DRNN", "LSTM", "GAB"]:
+        if self._m_type in ["SRNN", "DRNN", "LSTM", "CSALSTM", "GAB"]:
             ground_truths = batch['ground_truths'].to(self._device)
             prediction = self._model(aggregate)
             loss = self._criterion(prediction, ground_truths)
@@ -196,7 +197,7 @@ class Trainer():
             subseq_mask = custom_transformer.subsequent_mask(
                 mask_size).to(self._device)
 
-            if self._m_type in ["STT1", "STT2"]:
+            if self._m_type in ["VTF", "STT1", "STT2"]:
                 out = self._model(aggregate, in_gts, None, subseq_mask)
                 prediction = self._model.generator(aggregate, out)
             else:  # STT3
@@ -334,7 +335,14 @@ class Trainer():
 
             return dataloader
 
-        if self._m_type == "LSTM":
+        if self._m_type == "CSALSTM":
+            transform = custom_dataset.Wav2Spect()
+            model = csa_lstm.CSALSTM(
+                input_dim=const.N_FREQ,
+                num_sources=self._nsrc,
+                hidden_size=self._config['hidden_size']).to(self._device)
+
+        elif self._m_type == "LSTM":
             transform = custom_dataset.Wav2Spect('Concat')
             model = custom_models.B1(
                 input_dim=const.N_FREQ * 2,

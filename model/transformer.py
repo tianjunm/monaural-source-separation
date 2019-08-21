@@ -96,7 +96,8 @@ def make_stt(
     """Helper: Construct a double-encoder model from hyperparameters."""
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
-    attn_t = MultiHeadedAttention(h, seq_len)
+    # XXX: h for attn_t is currently a fixed param
+    attn_t = MultiHeadedAttention(4, seq_len)
 
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     ff_t = PositionwiseFeedForward(seq_len, d_ff, dropout)
@@ -149,10 +150,12 @@ def make_stt(
             generators.append(Generator(d_model, input_dim, num_sources=1))
 
         model = MultiOutputEncoderDecoder(
-            DoubleEncoder(
-                EncoderLayer(d_model, c(attn), c(ff), dropout),
-                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
-                N),
+            # DoubleEncoder(
+            #     EncoderLayer(d_model, c(attn), c(ff), dropout),
+            #     EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
+            #     N),
+            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+            Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
             decoders,
             nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             embeddings,
@@ -414,9 +417,10 @@ class EncoderTF(nn.Module):
 
 class MultiOutputEncoderDecoder(nn.Module):
     """Multi-decoder transformer"""
-    def __init__(self, encoder, decoders, src_embed, tgt_embeds, generators):
+    def __init__(self, encoder, encoder_t, decoders, src_embed, tgt_embeds, generators):
         super(MultiOutputEncoderDecoder, self).__init__()
         self.encoder = encoder
+        self.encoder_t = encoder_t
         self.decoders = nn.ModuleList(decoders)
         self.src_embed = src_embed
         self.tgt_embeds = nn.ModuleList(tgt_embeds)
@@ -432,8 +436,12 @@ class MultiOutputEncoderDecoder(nn.Module):
             tgt_mask)
 
     def encode(self, src, src_mask):
-        embedded = self.src_embed(src)
-        return self.encoder(embedded, src_mask)
+        # embedded = self.src_embed(src)
+        # return self.encoder(embedded, src_mask)
+        embedded = self.src_embed(src)  # [seq_len, d_model]
+        embedded_t = embedded.clone().permute(0, 2, 1)  # [d_model, seq_len]
+        return self.encoder(embedded, src_mask) + \
+            self.encoder_t(embedded_t, src_mask).permute(0, 2, 1)  # [seq_len, d_model]
 
     def decode(self, aggregate, memory, src_mask, tgts, tgt_mask):
         _, _, input_dim = aggregate.shape

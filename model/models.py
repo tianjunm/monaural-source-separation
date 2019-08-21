@@ -205,7 +205,6 @@ class GreedyLoss(nn.Module):
 
         # dists = get_loss
         dists = get_loss(predictions, ground_truths, self.device, self.metric)
-
         loss = dists.mean()
         return loss
 
