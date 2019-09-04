@@ -8,6 +8,7 @@ import os
 import random
 import time
 import torch
+import warnings
 # from tensorboardX import SummaryWriter as tensorboard_writer
 import train
 import utils
@@ -15,6 +16,7 @@ import constants as const
 
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
+warnings.filterwarnings(action='once')
 
 
 def get_argument():
@@ -22,19 +24,29 @@ def get_argument():
     parser = argparse.ArgumentParser(description='Setting up an experiment')
 
     # dataset specification
-    parser.add_argument('--gpu_id', type=int, default=0)
+    parser.add_argument('-g', '--gpu_id', type=int, default=0)
+    parser.add_argument('--gpu_ids', type=int, nargs='+')
     parser.add_argument('--model_type', type=str)
-    parser.add_argument('--metric', type=str)
+    parser.add_argument('--metric', type=str, default='euclidean')
     parser.add_argument('--dataset_type', type=int, default=1)
     parser.add_argument('--num_sources', type=int)
-    parser.add_argument('--category_range', type=int)
+    parser.add_argument('--category_range', type=int, default=25)
 
     # checkpointing, allowing two options:
     # 1. continue from the last seen epoch of the last seen config
     # 2. startover from the last seen config
-    parser.add_argument("--load_checkpoint", type=bool)
+    parser.add_argument(
+        '--load_checkpoint',
+        action='store_const',
+        const=True,
+        default=False)
+    parser.add_argument(
+        '--continue',
+        dest='cont',
+        action='store_const',
+        const=True,
+        default=False)
     parser.add_argument('--experiment_id', type=str, default=None)
-    parser.add_argument('--cont', type=bool, default=False)
 
     # single configuration
     # 1. repeat a particular config
@@ -106,20 +118,24 @@ def get_param_grid():
         'lrs': [0.001, 0.0005, 0.003],
         'optims': ['Adam'],
         'loss_fns': ['Greedy'],
-        'batch_sizes': [4, 16, 64],
-        'dropouts': [0.1, 0.3, 0.5],
+        'batch_sizes': [16, 32, 64],
+        'dropouts': [0.1, 0.2, 0.3],
         'momentums': [0.0, 0.5, 0.9],
         'beta1s': [0.9, 0.95, 0.99],
         'beta2s': [0.98, 0.99, 0.999],
         'epsilons': [1e-8, 1e-9],
-        'hidden_sizes': [32, 128, 512],
+        'hidden_sizes': [128, 512],
         'in_chans': [4, 16],
         'chans': [4, 16],
-        'Ns': [4, 5, 6],
-        'hs': [4, 8],
+        'Ns': [4, 5],
+        'hs': [4],
         'd_models': [128, 256],
         'd_ffs': [128, 256],
         'gammas': [0.01, 0.05, 0.1],
+        'res_sizes': [32, 64, 128],
+        'c_outs': [64, 128, 256, 512],
+        'd_outs': [32, 64],
+        'ks2s': [16, 32],
         }
 
     return grid
@@ -242,6 +258,20 @@ def run_configs(
         run_config(experiment_path, experiment_setup, config)
 
 
+def devices_map(gpu_id, gpu_ids):
+    if gpu_ids is None:
+        ids_map = [
+            [0, 1, 2, 3],
+            [1, 2, 3, 0],
+            [2, 3, 0, 1],
+            [3, 0, 1, 2]
+        ]
+
+        return ids_map[gpu_id]
+
+    return gpu_ids
+
+
 def main():
     args = get_argument()
 
@@ -253,6 +283,7 @@ def main():
 
     experiment_setup = {
         'device': get_device(args.gpu_id),
+        'devices': devices_map(args.gpu_id, args.gpu_ids),
         'dataset_type': args.dataset_type,
         'num_sources': args.num_sources,
         'category_range': args.category_range,

@@ -6,7 +6,8 @@ import torch.nn.functional as F
 class DRNN(nn.Module):
     '''DRNN-k introduced by Huang et al.'''
 
-    def  __init__(self,
+    def  __init__(
+            self,
             input_dim,
             num_sources,
             hidden_size,
@@ -25,20 +26,24 @@ class DRNN(nn.Module):
 
     def forward(self, x):
         batch_size = x.size()[0]
+        mixture = x.clone().unsqueeze(-2)
         for i, layer in enumerate(self.layers):
             if i == self.k - 1:
                 x, _ = layer(x)
             else:
                 x = F.relu(layer(x))
         x = x.view(batch_size, -1, self.num_sources, self.input_dim)
+
         # smoothing
         noms = torch.norm(x, dim=-1)
         denoms = torch.sum(torch.norm(x, dim=-1), dim=-1) + 1
         mask = noms / denoms.unsqueeze(-1)
-        ys = mask.unsqueeze(-1) * x
+        # print(ys.size())
+        ys = mask.unsqueeze(-1) * x * mixture
         return ys
 
-    def _init_layers(self,
+    def _init_layers(
+            self,
             input_dim,
             num_sources,
             hidden_size,

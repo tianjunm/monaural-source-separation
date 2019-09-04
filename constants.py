@@ -13,6 +13,10 @@ DATASET_PATH = '/home/ubuntu/datasets/processed/datagen/'
 TBLOG_PATH = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/tb_logs")
 RESULT_FILENAME = 'results_new.csv'
 
+VISUALIZATION_PATH  = os.path.join(ROOT_DIR, 'visualizations')
+VDATA_PATH = os.path.join(VISUALIZATION_PATH, 'data')
+VRESULT_PATH = os.path.join(VISUALIZATION_PATH, 'results')
+
 # default parameters
 NUM_SOURCES = 2
 MAX_EPOCHS = 500
@@ -47,6 +51,10 @@ FIELD_NAMES = [
     'd_model',
     'd_ff',
     'gamma',
+    'c_out',
+    'd_out',
+    'ks2',
+    'res_size',
     'best_val_loss',
     'experiment_path']
 

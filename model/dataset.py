@@ -63,13 +63,14 @@ class MixtureDataset(Dataset):
 
     def __getitem__(self, idx):
         # what the dataloader loads
-        item = {'aggregate': None, 'ground_truths': []}
+        item = {'aggregate': None, 'ground_truths': [], 'category_names': []}
 
         # load [nsrc] rows from instruction
         instances = self._load_instances(idx)
 
         for iid in instances.index:
             item['ground_truths'].append(self._create_gt(instances, iid))
+            item['category_names'].append(self._get_category(instances, iid))
 
         item['aggregate'] = overlay(item['ground_truths'])
 
@@ -80,6 +81,10 @@ class MixtureDataset(Dataset):
         begin, end = idx * self._nsrc, (idx + 1) * self._nsrc
         instances = self._data.iloc[begin:end]
         return instances
+
+    def _get_category(self, instances, iid):
+        category = instances.at[iid, 'category']
+        return category
 
     def _create_gt(self, instances, iid):
         # load original files according to filenames
@@ -122,6 +127,7 @@ class Wav2Spect():
             gts.append(gt_spect)
 
         transformed['ground_truths'] = torch.stack(gts, dim=-2)
+        transformed['category_names'] = item['category_names']
 
         if self._ed:
             seq_len, nsrc, input_dim = transformed['ground_truths'].shape

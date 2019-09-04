@@ -92,7 +92,9 @@ def make_stt(
         d_ff=D_FF,
         h=H,
         num_sources=2,
-        dropout=0.1):
+        dropout=0.1,
+        cr_args=None,
+        res_size=None):
     """Helper: Construct a double-encoder model from hyperparameters."""
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
@@ -111,11 +113,100 @@ def make_stt(
                 EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
                 N),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources)),
+            Generator(d_model, input_dim, num_sources=num_sources))
+
+    if stt_type == "STT1-CR":
+        model = EncoderDecoder(
+            DoubleEncoder(
+                ConvEncoderLayer(
+                    d_model,
+                    seq_len,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn),
+                    c(ff),
+                    dropout),
+                ConvEncoderLayer(
+                    seq_len,
+                    d_model,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn_t),
+                    c(ff_t),
+                    dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(
                 Embeddings(d_model, input_dim, num_sources=num_sources),
                 c(position)),
-            Generator(d_model, input_dim, num_sources=num_sources))
+            Generator(
+                d_model,
+                input_dim,
+                num_sources=num_sources,
+                res=True,
+                res_size=res_size))
+
+    if stt_type == "STTtp":
+        model = EncoderDecoder(
+            Encoder(
+                ConvEncoderLayer(
+                    d_model,
+                    seq_len,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn),
+                    c(ff),
+                    dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources),
+                c(position)),
+            Generator(
+                d_model,
+                input_dim,
+                num_sources=num_sources,
+                res=True,
+                res_size=res_size))
+
+
+    if stt_type == "STTsp":
+        model = EncoderDecoder(
+            TREncoder(
+                ConvEncoderLayer(
+                    seq_len,
+                    d_model,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn_t),
+                    c(ff_t),
+                    dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources),
+                c(position)),
+            Generator(
+                d_model,
+                input_dim,
+                num_sources=num_sources,
+                res=True,
+                res_size=res_size))
+
 
     elif stt_type == "STT2":
         model = EncoderTF(
@@ -194,26 +285,44 @@ def greedy_decoder(model, src, seq_len, num_sources, input_dim, device,
 # FIXME: very sketchy, need to fix style and notations
 class Generator(nn.Module):
     "Define standard linear + softmax generation step."
-    def __init__(self, d_model, input_dim, num_sources=1):
+    def __init__(
+            self,
+            d_model,
+            input_dim,
+            num_sources=1,
+            res=False,
+            res_size=None):
         super(Generator, self).__init__()
-        self.n_sources = num_sources
+        self._nsrc = num_sources
+        self.res = res
+        self.input_dim = input_dim,
         self.proj = nn.Linear(d_model, input_dim * num_sources)
+        if self.res:
+            self.fc1 = nn.Linear(d_model, res_size)
+            self.fc2 = nn.Linear(res_size, input_dim * num_sources)
 
     def forward(self, agg, x, learn_mask=True):
         s = min(agg.shape[1], x.shape[1])
 
-        _, seq_len, input_dim = agg.shape
+        input_dim = agg.size(2)
+        # print(input_dim)
         # sep_mask = F.log_softmax(self.proj(x), dim=-1).view(-1,
-        #         seq_len + 1, self.n_sources, input_dim)[:, :-1]
-        output = self.proj(x)[:, :s].view(-1, s, self.n_sources,
-                input_dim)
+        #         seq_len + 1, self._nsrc, input_dim)[:, :-1]
+        if self.res:
+            out = F.relu(self.fc1(x[:, :s]))
+            out_res = self.fc2(out)
+            out = F.relu(out_res) * out_res
+            out = out.view(-1, s, self._nsrc, input_dim)
+        else:
+            out = self.proj(x)[:, :s]
+            out = out.view(-1, s, self._nsrc, input_dim)
         # print(x.shape)
         # print(output.shape)
         # print(sep_mask.shape)
         if learn_mask:
-            return agg[:, :s].unsqueeze(2) * output[:, :s]
+            return agg[:, :s].unsqueeze(2) * out[:, :s]
         else:
-            return output[:, :s]
+            return out[:, :s]
 
 
 class LayerNorm(nn.Module):
@@ -294,6 +403,53 @@ class EncoderLayer(nn.Module):
         return self.sublayer[1](x, self.feed_forward)
 
 
+class ConvEncoderLayer(nn.Module):
+    "Encoder is made up of self-attn and feed forward (defined below)"
+    def __init__(
+            self,
+            size,
+            chan,
+            c_out,
+            d_out,
+            ks2,
+            self_attn,
+            feed_forward,
+            dropout):
+        super().__init__()
+        self.self_attn = self_attn
+        self.feed_forward = feed_forward
+        self.size = size
+        self.chan = chan
+        self.c_out = c_out
+        self.d_out = d_out
+        self.ks2 = ks2
+        self.convs = self.get_layers()
+        self.sublayer = clones(SublayerConnection(size, dropout), 2)
+
+    def get_layers(self):
+        ks1 = self.size - self.d_out + self.ks2
+
+        conv1 = nn.Conv1d(self.chan, self.c_out, kernel_size=ks1)
+        bn1 = nn.BatchNorm1d(self.c_out)
+        conv2 = nn.ConvTranspose1d(self.c_out, self.chan, kernel_size=self.ks2)
+        bn2 = nn.BatchNorm1d(self.chan)
+        lut = nn.Linear(self.d_out, self.size)
+        return nn.Sequential(
+            conv1,
+            bn1,
+            nn.ReLU(),
+            conv2,
+            bn2,
+            nn.ReLU(),
+            lut)
+
+    def forward(self, x, mask):
+        "Follow Figure 1 (left) for connections."
+        x = self.convs(x)
+        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
+        return self.sublayer[1](x, self.feed_forward)
+
+
 class DecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
     def __init__(self, size, self_attn, src_attn, feed_forward, dropout):
@@ -335,6 +491,34 @@ class Embeddings(nn.Module):
     def forward(self, x):
         return self.lut(x) * math.sqrt(self.d_model)
 
+
+# class ConvEmbeddings(nn.Module):
+#     def __init__(self, d_model, seq_len, input_dim, num_sources=1):
+#         super().__init__()
+#         # self.lut = nn.Embedding(input_dim, d_model)
+#         self.seq_len = seq_len
+#         self.input_dim = input_dim
+#         self.d_model = d_model
+#         self.conv1, self.bn1, self.conv2, self.bn2, self.lut = self.get_layers()
+
+#     def get_layers(self):
+#         c_out = 512
+#         d_out = 128
+#         ks1 = 5
+#         ks2 = self.input_dim - d_out - ks1 + 2
+
+#         conv1 = nn.Conv1d(self.seq_len, c_out, kernel_size=ks1)
+#         bn1 = nn.BatchNorm1d(c_out)
+#         conv2 = nn.Conv1d(c_out, self.seq_len, kernel_size=ks2)
+#         bn2 = nn.BatchNorm1d(self.seq_len)
+#         lut = nn.Linear(d_out, self.d_model)
+#         return conv1, bn1, conv2, bn2, lut
+
+#     def forward(self, x):
+#         x = F.relu(self.bn1(self.conv1(x)))
+#         x = F.relu(self.bn2(self.conv2(x)))
+
+#         return self.lut(x) * math.sqrt(self.d_model)
 
 # class GroupEmbedding(nn.Module):
 #     def __init__(self, embeddings):
@@ -386,8 +570,8 @@ class EncoderDecoder(nn.Module):
 
     def forward(self, src, tgt, src_mask, tgt_mask):
         "Take in and process masked src and target sequences."
-        return self.decode(self.encode(src, src_mask), src_mask,
-                            tgt, tgt_mask)
+        return self.generator(src, self.decode(self.encode(src, src_mask), src_mask,
+                            tgt, tgt_mask))
 
     def encode(self, src, src_mask):
         embedded = self.src_embed(src)
@@ -514,6 +698,24 @@ class DoubleEncoder(nn.Module):
             x = layer(x, mask)
             x_t = self.layer_ts[i](x_t, mask)
             x = x + x_t.permute(0, 2, 1)
+
+        return self.norm(x)
+
+
+class TREncoder(nn.Module):
+    "Core encoder is a stack of N layers"
+    def __init__(self, layer, N):
+        super(TREncoder, self).__init__()
+        self.layers = clones(layer, N)
+        self.norm = LayerNorm(layer.size)
+
+    def forward(self, x, mask):
+        "Pass the input (and mask) through each layer in turn."
+        x = x.permute(0, 2, 1)
+        for i, layer in enumerate(self.layers):
+            x = layer(x, mask)
+
+        x = x.permute(0, 2, 1)
         return self.norm(x)
 
 

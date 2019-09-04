@@ -5,7 +5,11 @@ import logging
 import time
 import os
 import torch
+import torch.nn as nn
 import torch.optim
+import torch.distributed as dist
+# import torch.nn.utils.data
+# import torch.nn.utils.data.distributed
 import utils
 import constants as const
 
@@ -16,6 +20,9 @@ import model.transformer as custom_transformer
 import model.srnn as huang_srnn
 import model.drnn as huang_drnn
 import model.csa_lstm as csa_lstm
+import model.lstm as lstm_base
+import model.dnn as dnn
+
 from model.min_loss import MinLoss
 
 
@@ -24,9 +31,16 @@ logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 
 class Trainer():
     """Trainer object that runs through a single experiment"""
-    def __init__(self, setup, config, experiment_path, load_checkpoint=False):
+    def __init__(self,
+                 setup,
+                 config,
+                 experiment_path,
+                 load_checkpoint=False,
+                 distributed=False,
+                 num_workers=0):
 
         self._device = setup['device']
+        self._devices = setup['devices']
         self._ds_type = setup['dataset_type']
         self._nsrc = setup['num_sources']
         self._ncat = setup['category_range']
@@ -38,6 +52,9 @@ class Trainer():
         self._config = config
         self._epath = experiment_path
         self._cp = load_checkpoint
+        self._dist = distributed
+        self._nworker = num_workers
+
 
         self._ds_size = self._nsrc * const.TRAIN_SCALE
         # self.tb_writer = tb_writer
@@ -183,13 +200,7 @@ class Trainer():
 
     def _compute_loss(self, batch):
         aggregate = batch['aggregate'].to(self._device)
-        if self._m_type in ["SRNN", "DRNN", "LSTM", "CSALSTM", "GAB"]:
-            ground_truths = batch['ground_truths'].to(self._device)
-            prediction = self._model(aggregate)
-            loss = self._criterion(prediction, ground_truths)
-
-        # STT1, STT2, STT3
-        else:
+        if self._m_type in ["VTF", "STT1", "STT1-CR", "STTtp", "STTsp"]:
             in_gts = batch['ground_truths_in'].to(self._device)
             cmp_gts = batch['ground_truths_gt'].to(self._device)
 
@@ -197,30 +208,35 @@ class Trainer():
             subseq_mask = custom_transformer.subsequent_mask(
                 mask_size).to(self._device)
 
-            if self._m_type in ["VTF", "STT1", "STT2"]:
-                out = self._model(aggregate, in_gts, None, subseq_mask)
-                prediction = self._model.generator(aggregate, out)
-            else:  # STT3
-                prediction = self._model(
-                    aggregate,
-                    in_gts,
-                    None,
-                    subseq_mask)
+            # if self._m_type in ["VTF", "STT1", "STT2"]:
+            prediction = self._model(aggregate, in_gts, None, subseq_mask)
+                # prediction = self._model.generator(aggregate, out)
+            # else:  # STT3
+            #     prediction = self._model(
+            #         aggregate,
+            #         in_gts,
+            #         None,
+            #         subseq_mask)
             loss = self._criterion(prediction, cmp_gts)
+
+        else:
+            ground_truths = batch['ground_truths'].to(self._device)
+            prediction = self._model(aggregate)
+            loss = self._criterion(prediction, ground_truths)
         return loss
 
-    def _log_tb(self, losses, epoch, trial_id):
-        legend_prefix = "{}_{}_{}_{}_{}".format(
-                self._m_type,
-                self.task,
-                self._config['id'],
-            self.catcap,
-                trial_id)
-        self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
-                {
-                    "{}_train".format(legend_prefix): losses['train'],
-                    "{}_val".format(legend_prefix): losses['val'],
-                }, epoch)
+    # def _log_tb(self, losses, epoch, trial_id):
+    #     legend_prefix = "{}_{}_{}_{}_{}".format(
+    #             self._m_type,
+    #             self.task,
+    #             self._config['id'],
+    #         self.catcap,
+    #             trial_id)
+    #     self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
+    #             {
+    #                 "{}_train".format(legend_prefix): losses['train'],
+    #                 "{}_val".format(legend_prefix): losses['val'],
+    #             }, epoch)
 
     def _save_model(
             self,
@@ -287,7 +303,6 @@ class Trainer():
                 "loss function %s is not supported",
                 self._config['loss_fn'])
 
-
         return criterion
 
     def _init_optim(self):
@@ -328,26 +343,48 @@ class Trainer():
                 data_path=data_path,
                 transform=transform)
 
+            if ds_name == "train" and self._dist:
+                samp = torch.utils.data.distributed.DistributedSampler(dataset)
+            else:
+                samp = None
+
             dataloader = torch.utils.data.DataLoader(
                 dataset,
                 batch_size=self._config['batch_size'],
-                shuffle=True)
+                shuffle=(ds_name == "train" and (samp is None)),
+                num_workers=self._nworker,
+                sampler=samp)
+                # pin_memory=False)
 
             return dataloader
 
-        if self._m_type == "CSALSTM":
+        if self._m_type == "DNN":
+            transform = custom_dataset.Wav2Spect('Concat')
+            model = dnn.DNN(
+                input_dim=const.N_FREQ * 2,
+                hidden_size=self._config['hidden_size'],
+                num_sources=self._nsrc)
+
+        elif self._m_type == "LSTM_base":
+            transform = custom_dataset.Wav2Spect('Concat')
+            model = lstm_base.LSTM(
+                input_dim=const.N_FREQ * 2,
+                hidden_size=self._config['hidden_size'],
+                num_sources=self._nsrc)
+
+        elif self._m_type == "CSALSTM":
             transform = custom_dataset.Wav2Spect()
             model = csa_lstm.CSALSTM(
                 input_dim=const.N_FREQ,
                 num_sources=self._nsrc,
-                hidden_size=self._config['hidden_size']).to(self._device)
+                hidden_size=self._config['hidden_size'])
 
         elif self._m_type == "LSTM":
             transform = custom_dataset.Wav2Spect('Concat')
             model = custom_models.B1(
                 input_dim=const.N_FREQ * 2,
                 hidden_size=self._config['hidden_size'],
-                num_sources=self._nsrc).to(self._device)
+                num_sources=self._nsrc)
 
         elif self._m_type == "GAB":
             # transform = custom_dataset.ToTensor(
@@ -356,7 +393,12 @@ class Trainer():
             model = custom_models.LookToListenAudio(
                 input_dim=const.N_FREQ,
                 chan=self._config['chan'],
-                num_sources=self._nsrc).to(self._device)
+                num_sources=self._nsrc)
+
+            model = nn.DataParallel(
+                model,
+                device_ids=self._devices,
+                output_device=self._device)
 
         elif self._m_type == "VTF":
             # transform = custom_dataset.Concat(
@@ -370,14 +412,29 @@ class Trainer():
                 d_ff=self._config['d_ff'],
                 h=self._config['h'],
                 num_sources=self._nsrc,
-                dropout=self._config['dropout']).to(self._device)
+                dropout=self._config['dropout'])
 
         # FIXME: seq_len is temporary
-        elif self._m_type in ["STT1", "STT2", "STT3"]:
+        elif self._m_type in ["STT1", "STTtp", "STTsp", "STT1-CR"]:
             # if self._m_type == "STT3":
             #     transform = custom_dataset.Wav2Spect('Separate', enc_dec=True)
             # else:
             transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
+
+            cr_args = None
+            if self._m_type in ["STTtp", "STTsp", "STT1-CR"]:
+                try:
+                    cr_args = {
+                        'c_out': self._config['c_out'],
+                        'd_out': self._config['d_out'],
+                        'ks2': self._config['ks2'],
+                    }
+                except:
+                    cr_args = {
+                        'c_out': 512,
+                        'd_out': 64,
+                        'ks2': 32
+                    }
 
             model = custom_transformer.make_stt(
                 input_dim=const.N_FREQ * 2,
@@ -388,7 +445,15 @@ class Trainer():
                 d_ff=self._config['d_ff'],
                 h=self._config['h'],
                 num_sources=self._nsrc,
-                dropout=self._config['dropout']).to(self._device)
+                dropout=self._config['dropout'],
+                cr_args=cr_args,
+                res_size=self._config['res_size'])
+
+            model = nn.DataParallel(
+                model,
+                device_ids=self._devices,
+                output_device=self._device)
+            logging.debug("Let's use %d GPUs!", torch.cuda.device_count())
 
         elif self._m_type == "SRNN":
             # self._config['loss_fn'] = 'Discrim'
@@ -398,7 +463,7 @@ class Trainer():
                 input_dim=const.N_FREQ * 2,
                 num_sources=self._nsrc,
                 hidden_size=self._config['hidden_size'],
-                dropout=self._config['dropout']).to(self._device)
+                dropout=self._config['dropout'])
 
         elif self._m_type == "DRNN":
             # self._config['loss_fn'] = 'Discrim'
@@ -409,7 +474,7 @@ class Trainer():
                 num_sources=self._nsrc,
                 hidden_size=self._config['hidden_size'],
                 k=1,
-                dropout=self._config['dropout']).to(self._device)
+                dropout=self._config['dropout'])
 
         else:
             logging.error("%s is not supported", self._m_type)
@@ -424,7 +489,10 @@ class Trainer():
             self._config['loss_fn'],
             self._config['optim'])
 
-        return dataloader, model
+        # model.cuda()
+        # model = torch.nn.parallel.DistributedDataParallel(model)
+
+        return dataloader, model.to(self._device)
 
     def _load_cp(self):
         config_id = self._config['id']

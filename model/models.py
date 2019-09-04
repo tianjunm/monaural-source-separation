@@ -161,6 +161,7 @@ class DiscrimLoss(nn.Module):
 
         return dists.mean() + penalties.mean()
 
+
         # return mse(predictions, ground_truths) + penalty
 
     def _calc_dists(self, preds, gts):
@@ -206,6 +207,34 @@ class GreedyLoss(nn.Module):
         # dists = get_loss
         dists = get_loss(predictions, ground_truths, self.device, self.metric)
         loss = dists.mean()
+        return loss
+
+
+class ProdGreedy(nn.Module):
+    """Custom loss function #1
+
+    Compare the distance from output with its closest ground truth.
+
+    """
+    def __init__(self, device, metric, num_sources):
+        # nn.Module.__init__(self)
+        super().__init__()
+        self.device = device
+        self.metric = metric
+        self.num_sources = num_sources
+
+    def forward(self, predictions, ground_truths):
+        """
+        Args:
+            predictions: bs, seq_len, num_sources, input_dim
+            ground_truths: bs, seq_len, num_sources, input_dim
+        Returns:
+            loss: [bs,]
+        """
+
+        # dists = get_loss
+        dists = get_loss(predictions, ground_truths, self.device, self.metric)
+        loss = dists.prod()
         return loss
 
 
@@ -279,7 +308,7 @@ class LookToListenAudio(nn.Module):
         self.convs = nn.ModuleList(self._construct_convs())
         self.bns = nn.ModuleList(self._construct_bns())
 
-        self.blstm = nn.LSTM(8 * self.input_dim, hidden_size=200, 
+        self.blstm = nn.LSTM(8 * self.input_dim, hidden_size=200,
                 batch_first=True, bidirectional=True)
         self.fc1 = nn.Linear(400, 600, bias=True)
         self.fc2 = nn.Linear(600, self.input_dim * self.in_chan * \
@@ -296,6 +325,7 @@ class LookToListenAudio(nn.Module):
         x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)
 
         # bidirectional lstm
+        self.blstm.flatten_parameters()
         x, _ = self.blstm(x)
         x = F.relu(x)
 
@@ -328,7 +358,7 @@ class LookToListenAudio(nn.Module):
     def _construct_bns(self):
         bns = []
         for i in range(self.num_layers):
-            chan = 8 if i == self.num_layers - 1 else self.chan 
+            chan = 8 if i == self.num_layers - 1 else self.chan
             bn = nn.BatchNorm2d(chan)
             bns.append(bn)
         return bns

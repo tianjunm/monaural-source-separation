@@ -11,7 +11,7 @@ class SRNN(nn.Module):
             num_sources,
             hidden_size,
             dropout,
-            num_layers=3,
+            num_layers=1,
             nonlinearity='relu'):
 
         super().__init__()
@@ -24,6 +24,7 @@ class SRNN(nn.Module):
 
     def forward(self, x):
         batch_size = x.size()[0]
+        mixture = x.clone().unsqueeze(-2)
         x, _ = self.rnn(x)
         x = F.relu(self.fc(x))
         x = x.view(batch_size, -1, self.num_sources, self.input_dim)
@@ -31,5 +32,6 @@ class SRNN(nn.Module):
         noms = torch.norm(x, dim=-1)
         denoms = torch.sum(torch.norm(x, dim=-1), dim=-1) + 1
         mask = noms / denoms.unsqueeze(-1)
-        ys = mask.unsqueeze(-1) * x
+
+        ys = x * mask.unsqueeze(-1)
         return ys
