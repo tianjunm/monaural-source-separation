@@ -32,7 +32,7 @@ def get_argument():
     parser.add_argument('-g', '--gpu_id', type=int)
     parser.add_argument('-t', '--dataset_type')
     parser.add_argument('-c', '--criterion', default='avg')
-    parser.add_argument('-m', '--model_types', nargs='+')
+    parser.add_argument('-m', '--model_type')
 
     parser.add_argument(
         '-r',
@@ -88,6 +88,15 @@ def load_model(model_type, exp_id, config_id, dataset_type, device):
             chan=config['chan']).to(device)
         net.load_state_dict(nm)
 
+    elif model_type == 'VTF':
+        net = mtr.make_model(
+            input_dim=129 * 2,
+            N=config['N'],
+            d_model=config['d_model'],
+            d_ff=config['d_ff'],
+            h=config['h'],
+            num_sources=nsrc,
+            dropout=config['dropout']).to(device)
     else:
         try:
             cr_args = {
@@ -154,9 +163,14 @@ def get_spect_recon(data, nsrc, xid=0):
     return spects, recons
 
 
-def get_spect(data):
-    real = np.split(data.numpy().T, 2)[0]
-    imag = np.split(data.numpy().T, 2)[1]
+def get_spect(data, mtype=''):
+    if mtype == 'GAB':
+        real = data[0].numpy().T
+        imag = data[1].numpy().T
+    else:
+        real = np.split(data.numpy().T, 2)[0]
+        imag = np.split(data.numpy().T, 2)[1]
+
     spect = real + 1j * imag
     return spect
 
@@ -201,7 +215,26 @@ def compute_loss(model, criterion, batch, device):
     return loss.item()
 
 
-# TODO
+def run_inference(model, model_type, nsrc, info, device):
+    aggregate = info['aggregate'].unsqueeze(0)
+    if model_type in ['STT1-CR', 'VTF']:
+        # ground_truths_in = info['ground_truths_in'].unsqueeze(0)
+        gts = info['ground_truths_gt'].unsqueeze(0)
+        _, seq_len, input_dim = aggregate.shape
+
+        # subseq_mask = mtr.subsequent_mask(ground_truths_in.shape[1])
+
+        seps = mtr.greedy_decoder(model, aggregate.to(device), seq_len, nsrc, input_dim, device)
+        outputs = torch.stack(torch.split(seps, 258, dim=-1), dim=2)
+
+    else:
+        gts = info['ground_truths'].unsqueeze(0)
+        outputs = model(aggregate.to(device))
+
+    return aggregate, gts, outputs
+
+
+# FIXME
 def get_stats(model, dataloader, device, nsrc, mtype='stt'):
     # baseline = mpr.PROJ(nsrc)
     # baseline.eval()
@@ -236,7 +269,7 @@ def get_stats(model, dataloader, device, nsrc, mtype='stt'):
         # return final_sdr / 2000
 
 
-def save_info(spects, audios, categories, idx, dataset_type, criterion, rec=False):
+def save_info(spects, audios, categories, idx, dataset_type, mtype, criterion, rec=False):
     for j, c in enumerate(spects):
         # try:
         # normalize audio
@@ -254,6 +287,7 @@ def save_info(spects, audios, categories, idx, dataset_type, criterion, rec=Fals
         out_path = os.path.join(
             const.VRESULT_PATH,
             dataset_type,
+            mtype,
             criterion,
             idx,
             f"{outname}.png")
@@ -261,6 +295,7 @@ def save_info(spects, audios, categories, idx, dataset_type, criterion, rec=Fals
         audio_path = os.path.join(
             const.VRESULT_PATH,
             dataset_type,
+            mtype,
             criterion,
             idx,
             f"{outname}.wav")
@@ -303,32 +338,26 @@ def main():
 
     nsrc = int(args.dataset_type.split('-')[1][0])
 
-    stt_tr = data_util.Wav2Spect('Concat', enc_dec=True)
-    gab_tr = data_util.Wav2Spect()
-
     trs = {
-        'STT1-CR': stt_tr,
-        'GAB': gab_tr,
-        }
+        'STT1-CR': data_util.Wav2Spect('Concat', enc_dec=True),
+        'VTF': data_util.Wav2Spect('Concat', enc_dec=True),
+        'GAB': data_util.Wav2Spect()
+    }
 
     ds0 = data_util.MixtureDataset(
         num_sources=nsrc,
         data_path=path,
-        transform=trs[args.model_types[0]])
-    ds1 = data_util.MixtureDataset(
-        num_sources=nsrc,
-        data_path=path,
-        transform=trs[args.model_types[1]])
+        transform=trs[args.model_type])
 
     bs = 1
     loader0 = torch.utils.data.DataLoader(ds0, batch_size=bs, shuffle=True)
     # loader1 = torch.utils.data.DataLoader(ds1, batch_size=bs, shuffle=False)
 
-    print("set up stt")
-    stt = load_model('STT1-CR', '190823', '2', args.dataset_type, device)
+    print(f"set up {args.model_type}")
+    model = load_model(args.model_type, '190820', '0', args.dataset_type, device)
     criterion = create_criterion(device, args.criterion)
 
-    print("finished set up stt")
+    print(f"finished set up {args.model_type}")
     # rank top 25 STT examples
 
     if args.rank:
@@ -337,7 +366,7 @@ def main():
         for i, batch in enumerate(loader0):
             if i == 2000:
                 break
-            loss = compute_loss(stt, criterion, batch, device)
+            loss = compute_loss(model, criterion, batch, device)
             losses.append((loss, i))
 
         torch.save({'losses': losses}, f'losses_{args.criterion}.tar')
@@ -345,51 +374,52 @@ def main():
     else:
         losses = torch.load(f'losses_{args.criterion}.tar')['losses']
 
-    tops = sorted(losses)[:100]
+    # tops = sorted(losses)[:100]
+
+    tops = [503, 537, 562, 625, 901, 943, 1113, 1690]
+    # tops = [3366, 9, 1905, 2758, 5901, 7478, 9413, 9453, 12574]
+    # tops = [5901]
 
     print(tops)
+    model.eval()
+    with torch.no_grad():
+        # for i, (_, idx) in enumerate(tqdm(tops)):
+        for i, idx in enumerate(tqdm(tops)):
+            info = ds0[idx]
+            categories = info['category_names']
 
-    for i, (_, idx) in enumerate(tqdm(tops)):
-        info = ds0[idx]
-        aggregate = info['aggregate'].unsqueeze(0)
-        # ground_truths_in = info['ground_truths_in'].unsqueeze(0)
-        ground_truths_gt = info['ground_truths_gt'].unsqueeze(0)
-        categories = info['category_names']
-        _, seq_len, input_dim = aggregate.shape
+            aggregate, gts, outputs = run_inference(model, args.model_type, nsrc, info, device)
 
-        # subseq_mask = mtr.subsequent_mask(ground_truths_in.shape[1])
+            # mixture
+            mspect = get_spect(aggregate[0], args.model_type)
+            maudio = get_wav(mspect)
 
-        seps = mtr.greedy_decoder(stt, aggregate.to(device), seq_len, nsrc, input_dim, device)
-        outputs = torch.stack(torch.split(seps, 258, dim=-1), dim=2)
+            # gt
+            gtspects, gtaudio = get_spect_recon(gts, nsrc)
+            # outputs
+            recspects, recaudio = get_spect_recon(outputs, nsrc)
 
-        # mixture
-        mspect = get_spect(aggregate[0])
-        maudio = get_wav(mspect)
+            # print(len(gtspects))
+            # print(gtaudio.shape)
+            # save original spects
+            save_info(
+                [mspect] + gtspects,
+                [maudio] + gtaudio,
+                categories,
+                str(idx),
+                args.dataset_type,
+                args.model_type,
+                args.criterion)
 
-        # gt
-        gtspects, gtaudio = get_spect_recon(ground_truths_gt, nsrc)
-        # outputs
-        recspects, recaudio = get_spect_recon(outputs, nsrc)
-
-        # print(len(gtspects))
-        # print(gtaudio.shape)
-        # save original spects
-        save_info(
-            [mspect] + gtspects,
-            [maudio] + gtaudio,
-            categories,
-            str(idx),
-            args.dataset_type,
-            args.criterion)
-
-        # save recs
-        save_info(
-            [mspect] + recspects,
-            [maudio] + recaudio,
-            categories,
-            str(idx),
-            args.dataset_type,
-            args.criterion, rec=True)
+            # save recs
+            save_info(
+                [mspect] + recspects,
+                [maudio] + recaudio,
+                categories,
+                str(idx),
+                args.dataset_type,
+                args.model_type,
+                args.criterion, rec=True)
 
         # break
 

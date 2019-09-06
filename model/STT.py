@@ -23,6 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import copy
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -30,55 +31,50 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
+"CONSTANTS"
 D_MODEL = 512
 D_FF = 1024
 H = 4
+H_T = 4
 
 
-"UTILITIES"
-
-
-def clones(module, N):
-    "Produce N identical layers."
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
-
-def subsequent_mask(size):
-    "Mask out subsequent positions."
-    attn_shape = (1, size, size)
-    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
-    return torch.from_numpy(subsequent_mask) == 0
-
-
-# TODO: harvard paper has mask = 1 everyehere, is it the same with mask=None?
-def attention(query, key, value, mask=None, dropout=None):
-    "Compute 'Scaled Dot Product Attention'"
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) \
-             / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim = -1)
-    if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
-
-
-def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
-        num_sources=2, dropout=0.1):
-    "Helper: Construct a model from hyperparameters."
+"APIs"
+def make_OTF(
+        input_dim,
+        N=3,
+        d_model=D_MODEL,
+        d_ff=D_FF,
+        h=H,
+        num_sources=2,
+        dropout=0.1):
+    "Creates the original transformer model."
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     position = PositionalEncoding(d_model, dropout)
-    # FIXME: experimenting with num_sources
     model = EncoderDecoder(
-        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-        Decoder(DecoderLayer(d_model, c(attn), c(attn),
-                             c(ff), dropout), N),
+        Encoder(
+            EncoderLayer(
+                d_model,
+                c(attn),
+                c(ff),
+                dropout),
+            N),
+        Decoder(
+            DecoderLayer(
+                d_model,
+                c(attn),
+                c(attn),
+                c(ff),
+                dropout),
+            N),
         nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-        nn.Sequential(Embeddings(d_model, input_dim,
-            num_sources=num_sources), c(position)),
+        nn.Sequential(
+            Embeddings(
+                d_model,
+                input_dim,
+                num_sources=num_sources),
+            c(position)),
         Generator(d_model, input_dim, num_sources=num_sources))
 
     # This was important from their code.
@@ -89,7 +85,7 @@ def make_model(input_dim, N=3, d_model=D_MODEL, d_ff=D_FF, h=H,
     return model
 
 
-def make_stt(
+def make_STT(
         input_dim,
         seq_len,
         stt_type="STT1",
@@ -97,35 +93,22 @@ def make_stt(
         d_model=D_MODEL,
         d_ff=D_FF,
         h=H,
+        h_t=H_T,
         num_sources=2,
         dropout=0.1,
         cr_args=None,
         res_size=None):
-    """Helper: Construct a double-encoder model from hyperparameters."""
+    "Creates the STT models with different setups."
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
-    # XXX: h for attn_t is currently a fixed param
-    attn_t = MultiHeadedAttention(4, seq_len)
+    attn_t = MultiHeadedAttention(h_t, seq_len)
 
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     ff_t = PositionwiseFeedForward(seq_len, d_ff, dropout)
 
     position = PositionalEncoding(d_model, dropout)
-    # FIXME: experimenting with num_sources
-    if stt_type == "STT1":
-        model = EncoderDecoder(
-            DoubleEncoder(
-                EncoderLayer(d_model, c(attn), c(ff), dropout),
-                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
-                N),
-            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(
-                Embeddings(d_model, input_dim, num_sources=num_sources)),
-            Generator(d_model, input_dim, num_sources=num_sources))
 
-    if stt_type == "STT1-CR":
+    if stt_type == "STT":
         model = EncoderDecoder(
             DoubleEncoder(
                 ConvEncoderLayer(
@@ -141,14 +124,14 @@ def make_stt(
                     seq_len,
                     d_model,
                     cr_args['c_out'],
+                    cr_args['c_out'],
                     cr_args['d_out'],
                     cr_args['ks2'],
-                    c(attn_t),
-                    c(ff_t),
+                    c(attn),
+                    c(ff),
                     dropout),
                 N),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(
                 Embeddings(d_model, input_dim, num_sources=num_sources),
@@ -160,7 +143,58 @@ def make_stt(
                 res=True,
                 res_size=res_size))
 
-    if stt_type == "STT2tp":
+    elif stt_type == "STT-tp":
+        model = EncoderDecoder(
+            Encoder(
+                ConvEncoderLayer(
+                    d_model,
+                    seq_len,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn),
+                    c(ff),
+                    dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources),
+                c(position)),
+            Generator(
+                d_model,
+                input_dim,
+                num_sources=num_sources,
+                res=True,
+                res_size=res_size))
+
+    elif stt_type == "STT-sp":
+        model = EncoderDecoder(
+            SPEncoder(
+                d_model,
+                ConvEncoderLayer(
+                    seq_len,
+                    d_model,
+                    cr_args['c_out'],
+                    cr_args['d_out'],
+                    cr_args['ks2'],
+                    c(attn_t),
+                    c(ff_t),
+                    dropout),
+                N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
+            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
+            nn.Sequential(
+                Embeddings(d_model, input_dim, num_sources=num_sources),
+                c(position)),
+            Generator(
+                d_model,
+                input_dim,
+                num_sources=num_sources,
+                res=True,
+                res_size=res_size))
+
+    elif stt_type == "STT-2tp":
         model = EncoderDecoder(
             DoubleTPEncoder(
                 d_model,
@@ -184,7 +218,6 @@ def make_stt(
                     dropout),
                 N),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(
                 Embeddings(d_model, input_dim, num_sources=num_sources),
@@ -196,7 +229,7 @@ def make_stt(
                 res=True,
                 res_size=res_size))
 
-    if stt_type == "STT2sp":
+    else:  # STT-2sp
         model = EncoderDecoder(
             DoubleSPEncoder(
                 d_model,
@@ -220,7 +253,6 @@ def make_stt(
                     dropout),
                 N),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(Embeddings(d_model, input_dim), c(position)),
             nn.Sequential(
                 Embeddings(d_model, input_dim, num_sources=num_sources),
@@ -231,104 +263,6 @@ def make_stt(
                 num_sources=num_sources,
                 res=True,
                 res_size=res_size))
-
-    if stt_type == "STTtp":
-        model = EncoderDecoder(
-            Encoder(
-                ConvEncoderLayer(
-                    d_model,
-                    seq_len,
-                    cr_args['c_out'],
-                    cr_args['d_out'],
-                    cr_args['ks2'],
-                    c(attn),
-                    c(ff),
-                    dropout),
-                N),
-            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(
-                Embeddings(d_model, input_dim, num_sources=num_sources),
-                c(position)),
-            Generator(
-                d_model,
-                input_dim,
-                num_sources=num_sources,
-                res=True,
-                res_size=res_size))
-
-    if stt_type == "STTsp":
-        model = EncoderDecoder(
-            TREncoder(
-                d_model,
-                ConvEncoderLayer(
-                    seq_len,
-                    d_model,
-                    cr_args['c_out'],
-                    cr_args['d_out'],
-                    cr_args['ks2'],
-                    c(attn_t),
-                    c(ff_t),
-                    dropout),
-                N),
-            Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff), dropout), N),
-            # nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            nn.Sequential(
-                Embeddings(d_model, input_dim, num_sources=num_sources),
-                c(position)),
-            Generator(
-                d_model,
-                input_dim,
-                num_sources=num_sources,
-                res=True,
-                res_size=res_size))
-
-
-    elif stt_type == "STT2":
-        model = EncoderTF(
-            DoubleEncoder(
-                EncoderLayer(d_model, c(attn), c(ff), dropout),
-                EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
-                2 * N),
-            nn.Sequential(
-                Embeddings(d_model, input_dim),
-                c(position)),
-            Generator(d_model, input_dim, num_sources=num_sources))
-
-    elif stt_type == "STT3":
-        decoders = []
-        embeddings = []
-        generators = []
-
-        for _ in range(num_sources):
-            decoders.append(
-                Decoder(
-                    DecoderLayer(
-                        d_model,
-                        c(attn),
-                        c(attn),
-                        c(ff),
-                        dropout),
-                    N))
-            embeddings.append(
-                nn.Sequential(
-                    Embeddings(d_model, input_dim, num_sources=1),
-                    c(position)))
-            generators.append(Generator(d_model, input_dim, num_sources=1))
-
-        model = MultiOutputEncoderDecoder(
-            # DoubleEncoder(
-            #     EncoderLayer(d_model, c(attn), c(ff), dropout),
-            #     EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout),
-            #     N),
-            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-            Encoder(EncoderLayer(seq_len, c(attn_t), c(ff_t), dropout), N),
-            decoders,
-            nn.Sequential(Embeddings(d_model, input_dim), c(position)),
-            embeddings,
-            generators)
 
     # This was important from their code.
     # Initialize parameters with Glorot / fan_avg.
@@ -338,29 +272,33 @@ def make_stt(
     return model
 
 
-# FIXME: strange CUDA issue: how to achieve efficient memory usage
-def greedy_decoder(model, src, seq_len, num_sources, input_dim, device, 
-        learn_mask=True, start_symbol=1):
-    "Decode the separation results."
-    memory = model.encode(src, None)
-    nbatch = src.shape[0]
-    ntoken = 1
-
-    "The 'start' symbol"
-    ys = torch.ones(nbatch, ntoken, num_sources * \
-            input_dim).fill_(start_symbol).type_as(src.data).to(device)
-
-    for i in range(seq_len):
-        subseq_mask = subsequent_mask(ys.size(1)).type_as(src.data).to(device)
-        out = model.decode(memory, None, ys, subseq_mask)
-        # [1 seq_len input_dim * num_sources]
-        out = model.generator(src, out, learn_mask=learn_mask).view(nbatch,
-                -1, num_sources * input_dim)
-        ys = torch.cat([ys, out[:, -1, :].unsqueeze(1).data], dim=1)
-    return ys[:, 1:]
+"HELPERS"
+def clones(module, N):
+    "Produce N identical layers."
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 
-# FIXME: very sketchy, need to fix style and notations
+def subsequent_mask(size):
+    "Mask out subsequent positions."
+    attn_shape = (1, size, size)
+    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
+    return torch.from_numpy(subsequent_mask) == 0
+
+
+def attention(query, key, value, mask=None, dropout=None):
+    "Compute 'Scaled Dot Product Attention'"
+    d_k = query.size(-1)
+    scores = torch.matmul(
+        query,
+        key.transpose(-2, -1)) / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = F.softmax(scores, dim=-1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn
+
+
 class Generator(nn.Module):
     "Define standard linear + softmax generation step."
     def __init__(
@@ -380,27 +318,21 @@ class Generator(nn.Module):
             self.fc2 = nn.Linear(res_size, input_dim * num_sources)
 
     def forward(self, agg, x, learn_mask=True):
-        s = min(agg.shape[1], x.shape[1])
+        curr_cap = min(agg.shape[1], x.shape[1])
 
         input_dim = agg.size(2)
-        # print(input_dim)
-        # sep_mask = F.log_softmax(self.proj(x), dim=-1).view(-1,
-        #         seq_len + 1, self._nsrc, input_dim)[:, :-1]
         if self.res:
-            out = F.relu(self.fc1(x[:, :s]))
+            out = F.relu(self.fc1(x[:, :curr_cap]))
             out_res = self.fc2(out)
             out = F.relu(out_res) * out_res
-            out = out.view(-1, s, self._nsrc, input_dim)
+            out = out.view(-1, curr_cap, self._nsrc, input_dim)
         else:
-            out = self.proj(x)[:, :s]
-            out = out.view(-1, s, self._nsrc, input_dim)
-        # print(x.shape)
-        # print(output.shape)
-        # print(sep_mask.shape)
+            out = self.proj(x)[:, :curr_cap]
+            out = out.view(-1, curr_cap, self._nsrc, input_dim)
         if learn_mask:
-            return agg[:, :s].unsqueeze(2) * out[:, :s]
+            return agg[:, :curr_cap].unsqueeze(2) * out[:, :curr_cap]
         else:
-            return out[:, :s]
+            return out[:, :curr_cap]
 
 
 class LayerNorm(nn.Module):
@@ -445,25 +377,73 @@ class MultiHeadedAttention(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
-        "Implements Figure 2"
         if mask is not None:
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
         nbatches = query.size(0)
 
-        # 1) Do all the linear projections in batch from d_model => h x d_k 
+        # 1) Do all the linear projections in batch from d_model => h x d_k
         query, key, value = \
             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
              for l, x in zip(self.linears, (query, key, value))]
 
-        # 2) Apply attention on all the projected vectors in batch. 
-        x, self.attn = attention(query, key, value, mask=mask, 
-                                 dropout=self.dropout)
+        # 2) Apply attention on all the projected vectors in batch.
+        x, self.attn = attention(
+            query,
+            key,
+            value,
+            mask=mask,
+            dropout=self.dropout)
 
-        # 3) "Concat" using a view and apply a final linear. 
+        # 3) "Concat" using a view and apply a final linear.
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
+
+
+class PositionwiseFeedForward(nn.Module):
+    "Implements FFN equation."
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super(PositionwiseFeedForward, self).__init__()
+        self.w_1 = nn.Linear(d_model, d_ff)
+        self.w_2 = nn.Linear(d_ff, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        return self.w_2(self.dropout(F.relu(self.w_1(x))))
+
+
+class Embeddings(nn.Module):
+    "The embedding to map inputs into model's dimension."
+    def __init__(self, d_model, input_dim, num_sources=1):
+        super(Embeddings, self).__init__()
+        self.lut = nn.Linear(input_dim * num_sources, d_model)
+        self.d_model = d_model
+
+    def forward(self, x):
+        return self.lut(x) * math.sqrt(self.d_model)
+
+
+class PositionalEncoding(nn.Module):
+    "Implement the PE function."
+    def __init__(self, d_model, dropout, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0., max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0., d_model, 2) *
+                             -(math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + Variable(self.pe[:, :x.size(1)],
+                         requires_grad=False)
+        return self.dropout(x)
 
 
 class EncoderLayer(nn.Module):
@@ -546,209 +526,8 @@ class DecoderLayer(nn.Module):
         return self.sublayer[2](x, self.feed_forward)
 
 
-class PositionwiseFeedForward(nn.Module):
-    "Implements FFN equation."
-    def __init__(self, d_model, d_ff, dropout=0.1):
-        super(PositionwiseFeedForward, self).__init__()
-        self.w_1 = nn.Linear(d_model, d_ff)
-        self.w_2 = nn.Linear(d_ff, d_model)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        return self.w_2(self.dropout(F.relu(self.w_1(x))))
-
-
-class Embeddings(nn.Module):
-    def __init__(self, d_model, input_dim, num_sources=1):
-        super(Embeddings, self).__init__()
-        # self.lut = nn.Embedding(input_dim, d_model)
-        # FIXME: confirm legitimacy of linear transformation
-        self.lut = nn.Linear(input_dim * num_sources, d_model)
-        self.d_model = d_model
-
-    def forward(self, x):
-        return self.lut(x) * math.sqrt(self.d_model)
-
-
-# class ConvEmbeddings(nn.Module):
-#     def __init__(self, d_model, seq_len, input_dim, num_sources=1):
-#         super().__init__()
-#         # self.lut = nn.Embedding(input_dim, d_model)
-#         self.seq_len = seq_len
-#         self.input_dim = input_dim
-#         self.d_model = d_model
-#         self.conv1, self.bn1, self.conv2, self.bn2, self.lut = self.get_layers()
-
-#     def get_layers(self):
-#         c_out = 512
-#         d_out = 128
-#         ks1 = 5
-#         ks2 = self.input_dim - d_out - ks1 + 2
-
-#         conv1 = nn.Conv1d(self.seq_len, c_out, kernel_size=ks1)
-#         bn1 = nn.BatchNorm1d(c_out)
-#         conv2 = nn.Conv1d(c_out, self.seq_len, kernel_size=ks2)
-#         bn2 = nn.BatchNorm1d(self.seq_len)
-#         lut = nn.Linear(d_out, self.d_model)
-#         return conv1, bn1, conv2, bn2, lut
-
-#     def forward(self, x):
-#         x = F.relu(self.bn1(self.conv1(x)))
-#         x = F.relu(self.bn2(self.conv2(x)))
-
-#         return self.lut(x) * math.sqrt(self.d_model)
-
-# class GroupEmbedding(nn.Module):
-#     def __init__(self, embeddings):
-#         super(GroupEmbedding, self).__init__()
-
-#     def forward(self, in_gts):
-#         src_embeds = []
-#         for i, in_gt in enumerate(in_gts):
-#             src_embeds.append(embeddings[i](in_gt))
-
-#         return src_embeds
-
-class PositionalEncoding(nn.Module):
-    "Implement the PE function."
-    def __init__(self, d_model, dropout, max_len=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0., max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0., d_model, 2) *
-                             -(math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + Variable(self.pe[:, :x.size(1)], 
-                         requires_grad=False)
-        return self.dropout(x)
-
-
-"TRANSFORMER MODEL"
-"transformer"
-class EncoderDecoder(nn.Module):
-    """
-    A standard Encoder-Decoder architecture. Base for this and many 
-    other models.
-    """
-    def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
-        super(EncoderDecoder, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.src_embed = src_embed
-        self.tgt_embed = tgt_embed
-        self.generator = generator
-
-    def forward(self, src, tgt, src_mask, tgt_mask):
-        "Take in and process masked src and target sequences."
-        return self.generator(src, self.decode(self.encode(src, src_mask), src_mask,
-                            tgt, tgt_mask))
-
-    def encode(self, src, src_mask):
-        embedded = self.src_embed(src)
-        return self.encoder(embedded, src_mask)
-
-    def decode(self, memory, src_mask, tgt, tgt_mask):
-        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
-
-
-class EncoderTF(nn.Module):
-    """Encoder-only transformer"""
-
-    def __init__(self, encoder, src_embed, generator):
-        super(EncoderTF, self).__init__()
-        self.encoder = encoder
-        self.src_embed = src_embed
-        self.generator = generator
-
-    def forward(self, src, tgt, src_mask, tgt_mask):
-        "Take in and process masked src and target sequences."
-        return self.encode(src, src_mask)
-
-    def encode(self, src, src_mask):
-        embedded = self.src_embed(src)
-        return self.encoder(embedded, src_mask)
-
-
-class MultiOutputEncoderDecoder(nn.Module):
-    """Multi-decoder transformer"""
-    def __init__(self, encoder, encoder_t, decoders, src_embed, tgt_embeds, generators):
-        super(MultiOutputEncoderDecoder, self).__init__()
-        self.encoder = encoder
-        self.encoder_t = encoder_t
-        self.decoders = nn.ModuleList(decoders)
-        self.src_embed = src_embed
-        self.tgt_embeds = nn.ModuleList(tgt_embeds)
-        self.generators = nn.ModuleList(generators)
-
-    def forward(self, src, tgts, src_mask, tgt_mask):
-        "Take in and process masked src and target sequences."
-        return self.decode(
-            src,
-            self.encode(src, src_mask),
-            src_mask,
-            tgts,
-            tgt_mask)
-
-    def encode(self, src, src_mask):
-        # embedded = self.src_embed(src)
-        # return self.encoder(embedded, src_mask)
-        embedded = self.src_embed(src)  # [seq_len, d_model]
-        embedded_t = embedded.clone().permute(0, 2, 1)  # [d_model, seq_len]
-        return self.encoder(embedded, src_mask) + \
-            self.encoder_t(embedded_t, src_mask).permute(0, 2, 1)  # [seq_len, d_model]
-
-    def decode(self, aggregate, memory, src_mask, tgts, tgt_mask):
-        _, _, input_dim = aggregate.shape
-        preds = []
-        for i, decoder in enumerate(self.decoders):
-            tgt = tgts[:, :, i * input_dim:(i + 1) * input_dim]
-            tgt_embed = self.tgt_embeds[i]
-            generator = self.generators[i]
-
-            out = decoder(tgt_embed(tgt), memory, src_mask, tgt_mask)
-            preds.append(generator(aggregate, out))
-        return torch.cat(preds, dim=2)
-
-
-class DoubleEncoderDecoder(nn.Module):
-    """
-    A double-encoder + decoder architecture
-    """
-    def __init__(self, encoder, encoder_t, decoder, src_embed, tgt_embed, generator):
-        super(DoubleEncoderDecoder, self).__init__()
-        self.encoder = encoder
-        self.encoder_t = encoder_t
-        self.decoder = decoder
-        self.src_embed = src_embed
-        self.tgt_embed = tgt_embed
-        self.generator = generator
-
-    def forward(self, src, tgt, src_mask, tgt_mask):
-        "Take in and process masked src and target sequences."
-        return self.decode(self.encode(src, src_mask), src_mask,
-                            tgt, tgt_mask)
-
-    def encode(self, src, src_mask):
-        embedded = self.src_embed(src)  # [seq_len, d_model]
-        embedded_t = embedded.clone().permute(0, 2, 1)  # [d_model, seq_len]
-        return self.encoder(embedded, src_mask) + \
-            self.encoder_t(embedded_t, src_mask).permute(0, 2, 1)  # [seq_len, d_model]
-
-    def decode(self, memory, src_mask, tgt, tgt_mask):
-        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
-
-
-"components"
 class Encoder(nn.Module):
-    "Core encoder is a stack of N layers"
+    "Encoder that only contains the temporal self-attention."
     def __init__(self, layer, N):
         super(Encoder, self).__init__()
         self.layers = clones(layer, N)
@@ -762,7 +541,7 @@ class Encoder(nn.Module):
 
 
 class DoubleEncoder(nn.Module):
-    "Core encoder is a stack of N layers"
+    "Encoder with temporal and spectral self-attention components."
     def __init__(self, layer, layer_t, N, transpose=True):
         super(DoubleEncoder, self).__init__()
         self.layers = clones(layer, N)
@@ -790,6 +569,7 @@ class DoubleEncoder(nn.Module):
 
 
 class DoubleTPEncoder(nn.Module):
+    "Encoder with two sets of temporal self-attention components."
     def __init__(self, d_model, layer, layer_t, N):
         super(DoubleTPEncoder, self).__init__()
         self.layers = clones(layer, N)
@@ -810,7 +590,7 @@ class DoubleTPEncoder(nn.Module):
 
 
 class DoubleSPEncoder(nn.Module):
-    "Core encoder is a stack of N layers"
+    "Encoder with two sets of spectrral self-attention components."
     def __init__(self, d_model, layer, layer_t, N):
         super(DoubleEncoder, self).__init__()
         self.layers = clones(layer, N)
@@ -831,16 +611,17 @@ class DoubleSPEncoder(nn.Module):
         return self.norm(x)
 
 
-class TREncoder(nn.Module):
-    "Core encoder is a stack of N layers"
+class SPEncoder(nn.Module):
+    "Encoder that only contains the spatial self-attention."
     def __init__(self, d_model, layer, N):
-        super(TREncoder, self).__init__()
+        super(SPEncoder, self).__init__()
         self.layers = clones(layer, N)
         self.norm = LayerNorm(d_model)
 
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."
         x = x.permute(0, 2, 1)
+
         for i, layer in enumerate(self.layers):
             x = layer(x, mask)
 
@@ -861,13 +642,32 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 
-# "pytorch wrapper for skorch model object"
-# class Transformer(skorch.NeuralNet):
+class EncoderDecoder(nn.Module):
+    """
+    A standard Encoder-Decoder architecture. Base for this and many
+    other models.
+    """
+    def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
+        super(EncoderDecoder, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.src_embed = src_embed
+        self.tgt_embed = tgt_embed
+        self.generator = generator
 
-#     # def __init__(self, *args, **kwargs):
-#     #     super(kk
-#     def infer(slef, Xi, yi):
-#         pass
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        "Take in and process masked src and target sequences."
+        return self.generator(
+            src,
+            self.decode(
+                self.encode(src, src_mask),
+                src_mask,
+                tgt,
+                tgt_mask))
 
-#     def train_step(self, Xi, yi):
-#         pass
+    def encode(self, src, src_mask):
+        embedded = self.src_embed(src)
+        return self.encoder(embedded, src_mask)
+
+    def decode(self, memory, src_mask, tgt, tgt_mask):
+        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)

@@ -200,7 +200,7 @@ class Trainer():
 
     def _compute_loss(self, batch):
         aggregate = batch['aggregate'].to(self._device)
-        if self._m_type in ["VTF", "STT1", "STT1-CR", "STTtp", "STTsp"]:
+        if self._m_type in ["VTF", "STT1", "STT1-CR", "STTtp", "STTsp", "STT2sp", "STT2tp"]:
             in_gts = batch['ground_truths_in'].to(self._device)
             cmp_gts = batch['ground_truths_gt'].to(self._device)
 
@@ -415,14 +415,14 @@ class Trainer():
                 dropout=self._config['dropout'])
 
         # FIXME: seq_len is temporary
-        elif self._m_type in ["STT1", "STTtp", "STTsp", "STT1-CR"]:
+        elif self._m_type in ["STT1", "STTtp", "STTsp", "STT1-CR", "STT2tp", "STT2sp"]:
             # if self._m_type == "STT3":
             #     transform = custom_dataset.Wav2Spect('Separate', enc_dec=True)
             # else:
             transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
 
             cr_args = None
-            if self._m_type in ["STTtp", "STTsp", "STT1-CR"]:
+            if self._m_type in ["STTtp", "STTsp", "STT1-CR", "STT2tp", "STT2sp"]:
                 try:
                     cr_args = {
                         'c_out': self._config['c_out'],
