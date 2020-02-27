@@ -1,14 +1,16 @@
 """convert audio dataset to images for training"""
+import copy
 import os
 import numpy as np
-import torch
 import pandas as pd
-import copy
-from pydub import AudioSegment as auseg
+import torch
 from torch.utils.data import Dataset
+from mmsdk import mmdatasdk
+# from pydub import AudioSegment as auseg
 
-RAW_DATA_PATH = '/home/ubuntu/datasets/original/FSDKaggle/train'
-# XXX
+RAW_DATA_PATH = '/work/tianjunm/large_datasets/audioset_verified/audio_csd/cut/16000'
+
+# XXX: STFT parameters
 MIXTURE_DURATION = 2000
 WINDOW_SIZE = 256
 HOP_LENGTH = 256 // 4 * 3
@@ -51,12 +53,14 @@ class MixtureDataset(Dataset):
             self,
             num_sources,
             data_path,
-            raw_data_path=RAW_DATA_PATH,
+            raw_path=RAW_DATA_PATH,
             transform=None):
         self._nsrc = num_sources
         self._data = pd.read_csv(data_path)
-        self._raw_path = raw_data_path
+        self._raw_path = raw_path
         self._transform = transform
+        self._dataset = self._init_compseq()
+
 
     def __len__(self):
         return len(self._data) // self._nsrc
@@ -70,11 +74,21 @@ class MixtureDataset(Dataset):
 
         for iid in instances.index:
             item['ground_truths'].append(self._create_gt(instances, iid))
-            item['category_names'].append(self._get_category(instances, iid))
+            # item['category_names'].append(self._get_category(instances, iid))
+            item['category_names'].append(instances.at[iid, 'category']))
 
         item['aggregate'] = overlay(item['ground_truths'])
 
         return self._transform(item)
+    
+    def _init_compseq(self):
+        files = {}
+        for csd_file in os.listdir():
+            category = csd_file.split('.')[0]
+            files[category] = os.path.join(self._raw_path, csd_file)
+            dataset = mmdatasdk.mmdataset(files)
+
+        return dataset
 
     def _load_instances(self, idx):
         # loading the section containing the [idx]th set of instances
@@ -82,29 +96,34 @@ class MixtureDataset(Dataset):
         instances = self._data.iloc[begin:end]
         return instances
 
-    def _get_category(self, instances, iid):
-        category = instances.at[iid, 'category']
-        return category
+    # def _get_category(self, instances, iid):
+    #     category = instances.at[iid, 'category']
+    #     return category
 
     def _create_gt(self, instances, iid):
         # load original files according to filenames
-        filename = instances.at[iid, 'filename']
+
+        category = instance.at[iid, 'category']
+        id_ = instances.at[iid, 'id']
         dur = instances.at[iid, 'clip_duration']
         start = instances.at[iid, 'mixture_placement']
         # start, end = parse_range(instances.at[iid, 'mixture_placement'])
         # print(filename)
 
-        wav_path = os.path.join(self._raw_path, filename)
-        wav = auseg.from_wav(wav_path)
-        wav = wav[:min(len(wav), dur)]
+        wav = self.dataset.computational_sequences['rain.csd']['03Qvfru13tA726249']['features']
 
-        # follow the corresponding instructions to
-        # manipulate the sound files
-        pad_before = auseg.silent(start)
-        pad_after = auseg.silent(MIXTURE_DURATION - len(wav) - start)
+        # wav_path = os.path.join(self._raw_path, filename)
 
-        padded_wav = pad_before + wav + pad_after
-        assert len(padded_wav) == MIXTURE_DURATION
+        # wav = auseg.from_wav(wav_path)
+        # wav = wav[:min(len(wav), dur)]
+
+        # # follow the corresponding instructions to
+        # # manipulate the sound files
+        # pad_before = auseg.silent(start)
+        # pad_after = auseg.silent(MIXTURE_DURATION - len(wav) - start)
+
+        # padded_wav = pad_before + wav + pad_after
+        # assert len(padded_wav) == MIXTURE_DURATION
 
         return padded_wav
 

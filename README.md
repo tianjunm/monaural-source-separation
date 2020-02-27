@@ -23,5 +23,6 @@ This is a Pytorch implementation of [WildMix Dataset and Spectro-Temporal Transf
 - [ ] several documents recording results lying around with confusing file names
 - [ ] few codes are modularized, with vast majority being monolithic
 - [ ] confusing flag names
+- [ ] mmsdk is not available on conda
 
 
