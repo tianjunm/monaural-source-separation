@@ -1,4 +1,21 @@
-"""convert audio dataset to images for training"""
+"""convert audio dataset to images for training
+
+FIXME:
+
+Problems with current data pipeline:
+
+- currently only randomizing start of source within mixture,
+  while always cutting the source clips from the beginning 
+
+- fetching datapoints and raw_data separately
+
+- datapoints need to be overwritten were new classes to be introduced
+
+- not sure how to perform dataset normalization, or if it's necessary
+
+- dataset does not come with metadata (i.e. categories within mixture)
+
+"""
 import copy
 import os
 import numpy as np
@@ -6,12 +23,12 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from mmsdk import mmdatasdk
-# from pydub import AudioSegment as auseg
 
 RAW_DATA_PATH = '/work/tianjunm/large_datasets/audioset_verified/audio_csd/cut/16000'
 
-# XXX: STFT parameters
-MIXTURE_DURATION = 2000
+# XXX: STFT parameters, should be present in the datapoint file
+SAMPLE_RATE = 16000
+MIXTURE_DURATION = 2 * SAMPLE_RATE
 WINDOW_SIZE = 256
 HOP_LENGTH = 256 // 4 * 3
 
@@ -21,13 +38,13 @@ def overlay(ground_truths):
     """Overlay ground truths together to create the aggregate."""
     aggregate = copy.deepcopy(ground_truths[0])
     for idx in range(1, len(ground_truths)):
-        aggregate = aggregate.overlay(ground_truths[idx])
+        aggregate += ground_truths[idx]
     return aggregate
 
 
 def get_spect(wav, ttype):
     """Apply STFT on the wave form to get its spectrogram representation."""
-    wav_arr = torch.from_numpy(np.array(wav.get_array_of_samples())).float()
+    wav_arr = torch.from_numpy(wav).float()
     # wav_arr = torch.Tensor(wav.get_array_of_samples())
     spect = torch.stft(
         wav_arr,
@@ -47,6 +64,7 @@ class MixtureDataset(Dataset):
     This dataset followes a set of instructions to load
     sound clips from the raw dataset and convert them to
     spectrograms.
+
     """
 
     def __init__(
@@ -56,14 +74,14 @@ class MixtureDataset(Dataset):
             raw_path=RAW_DATA_PATH,
             transform=None):
         self._nsrc = num_sources
-        self._data = pd.read_csv(data_path)
+        self._datapoints = pd.read_csv(data_path)
         self._raw_path = raw_path
         self._transform = transform
-        self._dataset = self._init_compseq()
+        self._raw_data = self._init_compseq()
 
 
     def __len__(self):
-        return len(self._data) // self._nsrc
+        return len(self._datapoints) // self._nsrc
 
     def __getitem__(self, idx):
         # what the dataloader loads
@@ -74,18 +92,21 @@ class MixtureDataset(Dataset):
 
         for iid in instances.index:
             item['ground_truths'].append(self._create_gt(instances, iid))
-            # item['category_names'].append(self._get_category(instances, iid))
-            item['category_names'].append(instances.at[iid, 'category']))
+            item['category_names'].append(instances.at[iid, 'category'])
 
         item['aggregate'] = overlay(item['ground_truths'])
 
         return self._transform(item)
     
     def _init_compseq(self):
+        """Loads all raw data into memory. 
+
+        """
+
         files = {}
-        for csd_file in os.listdir():
-            category = csd_file.split('.')[0]
-            files[category] = os.path.join(self._raw_path, csd_file)
+        for csd_file in os.listdir(self._raw_path):
+            # category = csd_file
+            files[csd_file] = os.path.join(self._raw_path, csd_file)
             dataset = mmdatasdk.mmdataset(files)
 
         return dataset
@@ -93,78 +114,31 @@ class MixtureDataset(Dataset):
     def _load_instances(self, idx):
         # loading the section containing the [idx]th set of instances
         begin, end = idx * self._nsrc, (idx + 1) * self._nsrc
-        instances = self._data.iloc[begin:end]
+        instances = self._datapoints.iloc[begin:end]
         return instances
-
-    # def _get_category(self, instances, iid):
-    #     category = instances.at[iid, 'category']
-    #     return category
 
     def _create_gt(self, instances, iid):
         # load original files according to filenames
 
-        category = instance.at[iid, 'category']
-        id_ = instances.at[iid, 'id']
+        category = instances.at[iid, 'category']
+        sound_id = instances.at[iid, 'filename']
         dur = instances.at[iid, 'clip_duration']
         start = instances.at[iid, 'mixture_placement']
-        # start, end = parse_range(instances.at[iid, 'mixture_placement'])
-        # print(filename)
 
-        wav = self.dataset.computational_sequences['rain.csd']['03Qvfru13tA726249']['features']
+        wav = self._raw_data.computational_sequences[category][sound_id]['features']
+        wav = np.sum(wav, axis=0) / 2
 
-        # wav_path = os.path.join(self._raw_path, filename)
+        wav = wav[:min(len(wav), dur)]
 
-        # wav = auseg.from_wav(wav_path)
-        # wav = wav[:min(len(wav), dur)]
-
-        # # follow the corresponding instructions to
-        # # manipulate the sound files
-        # pad_before = auseg.silent(start)
-        # pad_after = auseg.silent(MIXTURE_DURATION - len(wav) - start)
+        # follow the datapoint to create ground truths
+        prefix = np.zeros(start) * 1.0
+        suffix = np.zeros(MIXTURE_DURATION - len(wav) - start) * 1.0
 
         # padded_wav = pad_before + wav + pad_after
-        # assert len(padded_wav) == MIXTURE_DURATION
+        wav_padded = np.concatenate((prefix, wav, suffix), axis=None)
+        assert len(wav_padded) == MIXTURE_DURATION
 
-        return padded_wav
-
-
-class Wav2Spect():
-    """Transforms wave forms to spectrogram tensors"""
-
-    def __init__(self, agg_type=None, enc_dec=False):
-        self._ttype = agg_type
-        # self._gt_type = in_gts_type
-        self._ed = enc_dec
-
-    def __call__(self, item):
-        transformed = {'aggregate': None, 'ground_truths': None}
-        transformed['aggregate'] = get_spect(item['aggregate'], self._ttype)
-
-        gts = []
-        for gt_wav in item['ground_truths']:
-            gt_spect = get_spect(gt_wav, 'Concat')
-            gts.append(gt_spect)
-
-        transformed['ground_truths'] = torch.stack(gts, dim=-2)
-        transformed['category_names'] = item['category_names']
-
-        if self._ed:
-            seq_len, nsrc, input_dim = transformed['ground_truths'].shape
-            # ground truths preceded by start symbols
-            # combine last 2 dimensions
-            # if self._gt_type == "STT3":
-            #    start = torch.ones(1, input_dim)
-            #    transformed['ground_truths'][:, :, s]
-            start = torch.ones(1, nsrc * input_dim)
-            # end = torch.zeros(1, n_sources, input_dim)
-            gts_reshape = transformed['ground_truths'].view(seq_len, nsrc * input_dim)
-            # [nbatch, seq_len+1, n_sources * input_dim]
-            tgt_in = torch.cat([start, gts_reshape])
-            # [nbatch, seq_len+1, n_sources, input_dim]
-            # tgt_gt = torch.cat([gts, end])
-            transformed['ground_truths_in'] = tgt_in.clone()
-            transformed['ground_truths_gt'] = transformed['ground_truths']
-        return transformed
+        return wav_padded 
 
 
 class SignalDataset(Dataset):
@@ -199,6 +173,50 @@ class SignalDataset(Dataset):
         if self.transform:
             item = self.transform(item)
         return item
+
+
+# transformations
+
+
+class Wav2Spect():
+    """Transforms wave forms to spectrogram tensors"""
+
+    def __init__(self, agg_type=None, enc_dec=False):
+        self._ttype = agg_type
+        # self._gt_type = in_gts_type
+        self._ed = enc_dec
+
+    def __call__(self, item):
+        transformed = {'aggregate': None, 'ground_truths': None}
+        transformed['aggregate'] = get_spect(item['aggregate'], self._ttype)
+
+        gts = []
+        for gt_wav in item['ground_truths']:
+            gt_spect = get_spect(gt_wav, 'Concat')
+            gts.append(gt_spect)
+
+        transformed['ground_truths'] = torch.stack(gts, dim=-2)
+        transformed['category_names'] = item['category_names']
+
+        if self._ed:
+            seq_len, nsrc, input_dim = transformed['ground_truths'].shape
+            # ground truths preceded by start symbols
+            # combine last 2 dimensions
+            # if self._gt_type == "STT3":
+            #    start = torch.ones(1, input_dim)
+            #    transformed['ground_truths'][:, :, s]
+            start = torch.ones(1, nsrc * input_dim)
+            # end = torch.zeros(1, n_sources, input_dim)
+            gts_reshape = transformed['ground_truths'].view(seq_len, nsrc * input_dim)
+
+            # [nbatch, seq_len + 1, n_sources * input_dim]
+            tgt_in = torch.cat([start, gts_reshape])
+
+            # [nbatch, seq_len+1, n_sources, input_dim]
+            # tgt_gt = torch.cat([gts, end])
+            transformed['ground_truths_in'] = tgt_in.clone()
+            transformed['ground_truths_gt'] = transformed['ground_truths']
+        return transformed
 
 
 class ToTensor(object):

@@ -5,12 +5,13 @@ import os
 import numpy as np
 
 
-ROOT_DIR = "/home/ubuntu/"
+ROOT_DIR = "/work/tianjunm/"
 TRAIN_SCALE = 10000
-DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "datasets/processed/mixer/")
-RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/results")
-DATASET_PATH = '/home/ubuntu/datasets/processed/datagen/'
-TBLOG_PATH = os.path.join(ROOT_DIR, "/home/ubuntu/experiment_logs/tb_logs")
+# DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "dataset/processed/mixer/")
+RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "experiment/results")
+DATASET_PATH = os.path.join(ROOT_DIR, 'dataset/processed/datagen/')
+
+# TBLOG_PATH = os.path.join(ROOT_DIR, "home/ubuntu/experiment_logs/tb_logs")
 RESULT_FILENAME = 'results_new.csv'
 
 VISUALIZATION_PATH  = os.path.join(ROOT_DIR, 'visualizations')
@@ -61,3 +62,7 @@ FIELD_NAMES = [
 # dataset related
 NFFT = 256
 N_FREQ = NFFT // 2 + 1
+
+INTERCLASS = 0
+INTRACLASS = 1
+HYBRID = 2

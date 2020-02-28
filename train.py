@@ -1,3 +1,9 @@
+"""
+Problems:
+
+- seq_len cannot be automatically determined
+
+"""
 import argparse
 import csv
 import copy
@@ -34,23 +40,22 @@ class Trainer():
     def __init__(self,
                  setup,
                  config,
-                 experiment_path,
+                 experiment_title,
                  load_checkpoint=False,
                  distributed=False,
                  num_workers=0):
 
         self._device = setup['device']
-        self._devices = setup['devices']
-        self._ds_type = setup['dataset_type']
+        self._devices = [self._device]
         self._nsrc = setup['num_sources']
-        self._ncat = setup['category_range']
+        self._ncat = setup['num_classes']
         self._metric = setup['metric']
         self._m_type = setup['model_type']
         self._eid = setup['experiment_id']
         self._nconf = setup['num_configs']
 
         self._config = config
-        self._epath = experiment_path
+        self._etitle = experiment_title
         self._cp = load_checkpoint
         self._dist = distributed
         self._nworker = num_workers
@@ -124,7 +129,7 @@ class Trainer():
                 "(early stopping: %d/%d)",
                 self._config['id'] + 1,
                 self._nconf,
-                self._epath,
+                self._etitle,
                 epoch + 1,
                 self._ds_size,
                 self._ds_size,
@@ -156,7 +161,7 @@ class Trainer():
             content['metric'] = self._metric
             content['stop_epoch'] = epoch
             content['best_val_loss'] = best_val_loss
-            content['experiment_path'] = self._epath
+            content['experiment_title'] = self._etitle
             csv_writer.writerow(content)
 
     def train(self, epoch):
@@ -177,7 +182,7 @@ class Trainer():
                     "train loss: %.2f",
                     self._config['id'] + 1,
                     self._nconf,
-                    self._epath,
+                    self._etitle,
                     epoch + 1,
                     batch_idx * self._config['batch_size'],
                     self._ds_size,
@@ -256,7 +261,7 @@ class Trainer():
         # e.g. results/setup_name/config_0/snapshots/best.tar
         model_path = os.path.join(
             const.RESULT_PATH_PREFIX,
-            self._epath,
+            self._etitle,
             str(self._config['id']),
             "snapshots",
             model_name)
@@ -334,7 +339,7 @@ class Trainer():
 
             data_path = os.path.join(
                 const.DATASET_PATH,
-                self._epath.split('_')[0],
+                self._etitle.split('_')[0],
                 f"{ds_name}.csv")
             logging.debug("%s", data_path)
 
@@ -438,7 +443,7 @@ class Trainer():
 
             model = custom_transformer.make_stt(
                 input_dim=const.N_FREQ * 2,
-                seq_len=460,
+                seq_len=167,
                 stt_type=self._m_type,
                 N=self._config['N'],
                 d_model=self._config['d_model'],
@@ -501,7 +506,7 @@ class Trainer():
 
         checkpoint_path = os.path.join(
             const.RESULT_PATH_PREFIX,
-            self._epath,
+            self._etitle,
             str(config_id),
             "snapshots",
             "checkpoint.tar")
@@ -522,5 +527,70 @@ class Trainer():
         return start_epoch, min_loss
 
 
-# if __name__ == '__main__':
-#     main()
+def get_arguments():
+    parser = argparse.ArgumentParser(description='Dataset creation script')
+    parser.add_argument('--gpu_id', type=int, default=0)
+
+    parser.add_argument('--model_type', type=str)
+    parser.add_argument('--metric', type=str, default='euclidean')
+    parser.add_argument('--mixing_type', type=int, default=const.INTERCLASS)
+    parser.add_argument('--num_sources', type=int)
+    parser.add_argument('--num_classes', type=int, default=25)
+
+    return parser.parse_args()
+
+
+def main():
+
+    args = get_arguments()
+
+    experiment_setup = {
+        'num_configs': 1,
+        'device': torch.device('cuda', args.gpu_id),
+        'num_sources': args.num_sources,
+        'num_classes': args.num_classes,
+        'metric': args.metric,
+        'model_type': args.model_type,
+        'mixing_type': args.mixing_type,
+        'experiment_id': time.strftime("%y%m%d", time.gmtime())
+        }
+
+    config = {
+        'id': 0,
+        'max_epoch': 400,
+        'lr': 0.0005,
+        'optim': 'Adam',
+        'loss_fn': 'Greedy',
+        'batch_size': 32,
+        'dropout': 0.5,
+        'momentum': 0.5,
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'epsilon': 1e-8,
+        'hidden_size': 512,
+        'in_chan': 4,
+        'chan': 4,
+        'N': 4,
+        'h': 4,
+        'd_model': 256,
+        'd_ff': 256,
+        'gamma': 0.1,
+        'res_size': 128,
+        # 'c_outs': [64, 128, 256, 512],
+        # 'd_outs': [32, 64],
+        # 'ks2s': [16, 32],
+        }
+
+    experiment_title = utils.get_experiment_title(experiment_setup)
+
+    trainer = Trainer(
+        setup=experiment_setup,
+        config=config,
+        experiment_title=experiment_title,
+        load_checkpoint=False)
+
+    trainer.fit()
+
+
+if __name__ == '__main__':
+    main()

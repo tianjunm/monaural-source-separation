@@ -28,7 +28,7 @@ def get_argument():
     parser.add_argument('--gpu_ids', type=int, nargs='+')
     parser.add_argument('--model_type', type=str)
     parser.add_argument('--metric', type=str, default='euclidean')
-    parser.add_argument('--dataset_type', type=int, default=1)
+    parser.add_argument('--mixing_type', type=int, default=1)
     parser.add_argument('--num_sources', type=int)
     parser.add_argument('--category_range', type=int, default=25)
 
@@ -74,7 +74,7 @@ def get_device(gpu_id):
 def get_experiment_path(setup):
     """Returns the root path for saving the result of given experiment."""
 
-    ds_type = setup['dataset_type']
+    ds_type = setup['mixing_type']
     nsrc = setup['num_sources']
     ncat = setup['category_range']
     metric = setup['metric']
@@ -258,7 +258,8 @@ def run_configs(
         run_config(experiment_path, experiment_setup, config)
 
 
-def devices_map(gpu_id, gpu_ids):
+# XXX
+def devices_map(gpu_id, gpu_ids=None):
     if gpu_ids is None:
         ids_map = [
             [0, 1, 2, 3],
@@ -284,7 +285,7 @@ def main():
     experiment_setup = {
         'device': get_device(args.gpu_id),
         'devices': devices_map(args.gpu_id, args.gpu_ids),
-        'dataset_type': args.dataset_type,
+        'mixing_type': args.mixing_type,
         'num_sources': args.num_sources,
         'category_range': args.category_range,
         'metric': args.metric,

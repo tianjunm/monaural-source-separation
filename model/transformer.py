@@ -23,6 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import copy
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -105,7 +106,7 @@ def make_stt(
     c = copy.deepcopy
     attn = MultiHeadedAttention(h, d_model)
     # XXX: h for attn_t is currently a fixed param
-    attn_t = MultiHeadedAttention(4, seq_len)
+    attn_t = MultiHeadedAttention(1, seq_len)
 
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     ff_t = PositionwiseFeedForward(seq_len, d_ff, dropout)
