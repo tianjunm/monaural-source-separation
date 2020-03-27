@@ -5,16 +5,18 @@ import os
 import numpy as np
 
 
-ROOT_DIR = "/work/tianjunm/"
+ROOT = "/work/tianjunm/monaural-source-separation"
 TRAIN_SCALE = 10000
 # DATASET_PATH_PREFIX = os.path.join(ROOT_DIR, "dataset/processed/mixer/")
-RESULT_PATH_PREFIX = os.path.join(ROOT_DIR, "experiment/results")
-DATASET_PATH = os.path.join(ROOT_DIR, 'dataset/processed/datagen/')
+# RESULT_PATH_PREFIX = os.path.join(ROOT, "experiment/snapshots")
+DATASET_PATH = os.path.join(ROOT, 'dataset/processed/datagen/')
+
+SNAPSHOTS_PATH = os.path.join(ROOT, 'experiments/snapshots')
 
 # TBLOG_PATH = os.path.join(ROOT_DIR, "home/ubuntu/experiment_logs/tb_logs")
 RESULT_FILENAME = 'results_new.csv'
 
-VISUALIZATION_PATH  = os.path.join(ROOT_DIR, 'visualizations')
+VISUALIZATION_PATH = os.path.join(ROOT_DIR, 'visualizations')
 VDATA_PATH = os.path.join(VISUALIZATION_PATH, 'data')
 VRESULT_PATH = os.path.join(VISUALIZATION_PATH, 'results')
 
@@ -57,7 +59,7 @@ FIELD_NAMES = [
     'ks2',
     'res_size',
     'best_val_loss',
-    'experiment_path']
+    'experiment_title']
 
 # dataset related
 NFFT = 256

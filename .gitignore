@@ -1,0 +1,7 @@
+# program generated files
+__pycache__
+.vscode
+.ipynb_checkpoints
+
+# dev files
+__disorganized__

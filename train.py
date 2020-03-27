@@ -1,9 +1,11 @@
 """
-Problems:
+This script trains the models for monaural source separation.
 
-- seq_len cannot be automatically determined
+Contributors:
+    Tianjun Ma (tianjunm@cs.cmu.edu)
 
 """
+
 import argparse
 import csv
 import copy
@@ -13,583 +15,154 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim
-import torch.distributed as dist
-# import torch.nn.utils.data
-# import torch.nn.utils.data.distributed
-import utils
-import constants as const
 
-# FIXME: module rename
-import model.dataset as custom_dataset
-import model.models as custom_models
-import model.transformer as custom_transformer
-import model.srnn as huang_srnn
-import model.drnn as huang_drnn
-import model.csa_lstm as csa_lstm
-import model.lstm as lstm_base
-import model.dnn as dnn
-
-from model.min_loss import MinLoss
+import models.setup
+import datasets.setup
+import loss_functions.setup
 
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 
 
-class Trainer():
-    """Trainer object that runs through a single experiment"""
-    def __init__(self,
-                 setup,
-                 config,
-                 experiment_title,
-                 load_checkpoint=False,
-                 distributed=False,
-                 num_workers=0):
+class Experiment():
+    def __init__(self, data, snapshot_path, loss_function):
+        self._train_data, self._val_data = data
+        self._loss_fn = loss_function
 
-        self._device = setup['device']
-        self._devices = [self._device]
-        self._nsrc = setup['num_sources']
-        self._ncat = setup['num_classes']
-        self._metric = setup['metric']
-        self._m_type = setup['model_type']
-        self._eid = setup['experiment_id']
-        self._nconf = setup['num_configs']
+    def run(self): 
+        start_epoch, min_loss = self._load_checkpoint()
 
-        self._config = config
-        self._etitle = experiment_title
-        self._cp = load_checkpoint
-        self._dist = distributed
-        self._nworker = num_workers
+        for epoch in range(start_epoch, min_loss):
+            self._step()
 
+        self._post_result(epoch, min_loss)
 
-        self._ds_size = self._nsrc * const.TRAIN_SCALE
-        # self.tb_writer = tb_writer
-        # self.task = task
+    def _step(self):
 
-        self._dl, self._model = self._init_model()
-        self._optim = self._init_optim()
-        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._optim, 'min')
-        self._criterion = self._init_criterion()
+        train_loss = self._train_step(epoch)
+        val_loss = self._val_step()
 
-        self.best_path = None
-        # fill start_epoch, model, optim
-        # self._load_checkpoint()
+        if val_loss < min_loss:
+            es_counter = 0
 
-    def fit(self):
-        """Train the specified model for [max_epoch] epochs."""
-        logging.debug(self._device)
+            # save best loss of current unfinished trial
+            min_loss = val_loss
+            logging.info("saving best model...")
 
-        # TODO: es_counter will not be restored
-        es_counter = 0  # keeping track of early stopping
-        es_done = False  # indicator of early stopping
+            self._save_model(epoch, train_loss, val_loss,
+                                best_model=self._model)
 
-        # self._load_()
-        if not self._cp:
-            start_epoch, min_loss = 0, const.MAX_LOSS
+            logging.info("finished saving current best model")
         else:
-            start_epoch, min_loss = self._load_cp()
+            es_counter += 1
 
-        for epoch in range(start_epoch, self._config['max_epoch']):
-            if es_done:
-                break
+            if es_counter >= const.TOLERANCE:
+                es_done = True
+                logging.info(
+                    "val loss does not decrease for more than "
+                    "%d epochs, training will be terminated",
+                    const.TOLERANCE)
 
-            end = time.time()
-            train_loss = self.train(epoch)
-            val_loss = self.validate()
+        logging.info(
+            "[%2d/%2d] %s: epoch %3d, [%5d/%5d] "
+            "train loss: %.2f, val loss: %.2f, duration: %.0fs "
+            "(early stopping: %d/%d)",
+            self._config['id'] + 1,
+            self._nconf,
+            self._etitle,
+            epoch + 1,
+            self._ds_size,
+            self._ds_size,
+            train_loss,
+            val_loss,
+            time.time() - end,
+            es_counter,
+            const.TOLERANCE)
 
-            # self.scheduler.step(val_loss)
-
-            # save model with the best performance
-            if val_loss < min_loss:
-                es_counter = 0
-
-                # save best loss of current unfinished trial
-                min_loss = val_loss
-                logging.info("saving best model...")
-
-                self._save_model(
-                    epoch,
-                    train_loss,
-                    val_loss,
-                    best_model=self._model)
-
-                logging.info("finished saving current best model")
-            else:
-                es_counter += 1
-
-                if es_counter >= const.TOLERANCE:
-                    es_done = True
-                    logging.info(
-                        "val loss does not decrease for more than "
-                        "%d epochs, training will be terminated",
-                        const.TOLERANCE)
-
-            logging.info(
-                "[%2d/%2d] %s: epoch %3d, [%5d/%5d] "
-                "train loss: %.2f, val loss: %.2f, duration: %.0fs "
-                "(early stopping: %d/%d)",
-                self._config['id'] + 1,
-                self._nconf,
-                self._etitle,
-                epoch + 1,
-                self._ds_size,
-                self._ds_size,
+        # self._log_tb(losses, epoch, trial_id)
+        if (epoch + 1) % const.CHECKPOINT_FREQ == 0:
+            logging.info("saving snapshot...")
+            self._save_model(
+                epoch,
                 train_loss,
                 val_loss,
-                time.time() - end,
-                es_counter,
-                const.TOLERANCE)
+                min_loss=min_loss)
+            logging.info("finished saving snapshots")
 
-            # self._log_tb(losses, epoch, trial_id)
-
-            if (epoch + 1) % const.CHECKPOINT_FREQ == 0:
-                logging.info("saving snapshot...")
-                self._save_model(
-                    epoch,
-                    train_loss,
-                    val_loss,
-                    min_loss=min_loss)
-                logging.info("finished saving snapshots")
-
-        self._log_sheet(epoch, min_loss)
-
-    def _log_sheet(self, epoch, best_val_loss):
-        csv_path = os.path.join(const.RESULT_PATH_PREFIX, const.RESULT_FILENAME)
-        with open(csv_path, 'a+') as csvfile:
-            csv_writer = csv.DictWriter(csvfile, fieldnames=const.FIELD_NAMES)
-            content = copy.deepcopy(self._config)
-            content['model'] = self._m_type
-            content['metric'] = self._metric
-            content['stop_epoch'] = epoch
-            content['best_val_loss'] = best_val_loss
-            content['experiment_title'] = self._etitle
-            csv_writer.writerow(content)
-
-    def train(self, epoch):
-        "Trains the model for one epoch."
+    def _train_step(self):
         self._model.train()
-        for batch_idx, batch in enumerate(self._dl['train']):
-            self._optim.zero_grad()
-            loss = self._compute_loss(batch)
-            loss.backward()
-            self._optim.step()
 
-            log_size = (self._ds_size // \
-                        self._config['batch_size'] // const.LOG_FREQ)
-
-            if (batch_idx + 1) % log_size == 0:
-                logging.info(
-                    "[%2d/%2d] %s: epoch %3d, [%5d/%5d] "
-                    "train loss: %.2f",
-                    self._config['id'] + 1,
-                    self._nconf,
-                    self._etitle,
-                    epoch + 1,
-                    batch_idx * self._config['batch_size'],
-                    self._ds_size,
-                    loss.item())
+        for batch_idx, batch in enumerate(self._train_data):
+            pass
 
         return loss.item()
-
-    def validate(self):
-        "Returns validation loss on the validation set."
+    
+    def _val_step(self):
         running_loss = 0.0
         iters = 0
+
         self._model.eval()
+
         with torch.no_grad():
-            for batch in self._dl['test']:
+            for batch in self._val_data:
                 iters += 1
-                loss = self._compute_loss(batch)
+                loss = self._loss_fn(batch)
                 running_loss += loss.item()
 
         return running_loss / iters
 
-    def _compute_loss(self, batch):
-        aggregate = batch['aggregate'].to(self._device)
-        if self._m_type in ["VTF", "STT1", "STT1-CR", "STTtp", "STTsp", "STT2sp", "STT2tp"]:
-            in_gts = batch['ground_truths_in'].to(self._device)
-            cmp_gts = batch['ground_truths_gt'].to(self._device)
+    def _save_snapshot(self):
+        torch.save()
+    
+    def _load_snapshot(self):
+        snapshot = torch.load()
 
-            mask_size = in_gts.shape[1]
-            subseq_mask = custom_transformer.subsequent_mask(
-                mask_size).to(self._device)
-
-            # if self._m_type in ["VTF", "STT1", "STT2"]:
-            prediction = self._model(aggregate, in_gts, None, subseq_mask)
-                # prediction = self._model.generator(aggregate, out)
-            # else:  # STT3
-            #     prediction = self._model(
-            #         aggregate,
-            #         in_gts,
-            #         None,
-            #         subseq_mask)
-            loss = self._criterion(prediction, cmp_gts)
-
-        else:
-            ground_truths = batch['ground_truths'].to(self._device)
-            prediction = self._model(aggregate)
-            loss = self._criterion(prediction, ground_truths)
-        return loss
-
-    # def _log_tb(self, losses, epoch, trial_id):
-    #     legend_prefix = "{}_{}_{}_{}_{}".format(
-    #             self._m_type,
-    #             self.task,
-    #             self._config['id'],
-    #         self.catcap,
-    #             trial_id)
-    #     self.tb_writer.add_scalars("data/{}/loss".format(self.metric),
-    #             {
-    #                 "{}_train".format(legend_prefix): losses['train'],
-    #                 "{}_val".format(legend_prefix): losses['val'],
-    #             }, epoch)
-
-    def _save_model(
-            self,
-            epoch,
-            train_loss,
-            val_loss,
-            min_loss=const.MAX_LOSS,
-            best_model=None):
-
-        if best_model is None:
-            model_name = "checkpoint.tar"
-        else:
-            model_name = "best.tar"
-            min_loss = val_loss
-
-        # e.g. results/setup_name/config_0/snapshots/checkpoint.tar
-        # e.g. results/setup_name/config_0/snapshots/best.tar
-        model_path = os.path.join(
-            const.RESULT_PATH_PREFIX,
-            self._etitle,
-            str(self._config['id']),
-            "snapshots",
-            model_name)
-
-        utils.make_dir(model_path)
-
-        # save model
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': self._model.state_dict(),
-            'optim_state_dict': self._optim.state_dict(),
-            'train_loss': train_loss,
-            'val_loss': val_loss,
-            'min_loss': min_loss,
-            }, model_path)
-
-        return model_path
-
-    def _init_criterion(self):
-        gamma = 0
-        if self._m_type == "DRNN" or self._m_type == "SRNN":
-            gamma = self._config['gamma']
-
-        if self._config['loss_fn'] == "Greedy":
-            criterion = custom_models.GreedyLoss(
-                self._device,
-                self._metric,
-                self._nsrc)
-
-        elif self._config['loss_fn'] == "Min":
-            criterion = MinLoss(
-                self._device,
-                self._metric,
-                self._nsrc)
-
-        elif self._config['loss_fn'] == "Discrim":
-            criterion = custom_models.DiscrimLoss(
-                self._device,
-                self._metric,
-                gamma)
-
-        else:
-            logging.error(
-                "loss function %s is not supported",
-                self._config['loss_fn'])
-
-        return criterion
-
-    def _init_optim(self):
-        if self._config['optim'] == "SGD":
-            optim = torch.optim.SGD(
-                self._model.parameters(),
-                lr=self._config['lr'],
-                momentum=self._config['momentum'])
-
-        elif self._config['optim'] == "Adam":
-            optim = torch.optim.Adam(
-                self._model.parameters(),
-                lr=self._config['lr'],
-                betas=(self._config['beta1'], self._config['beta2']),
-                eps=self._config['epsilon'])
-
-        else:
-            logging.error(
-                "optimizer %s is not supported",
-                self._config['loss_fn'])
-
-        return optim
-
-    def _init_model(self):
-        """create dataloader and model"""
-
-        def get_loader(ds_name):
-            """get loader based on train/test spec"""
-
-            data_path = os.path.join(
-                const.DATASET_PATH,
-                self._etitle.split('_')[0],
-                f"{ds_name}.csv")
-            logging.debug("%s", data_path)
-
-            dataset = custom_dataset.MixtureDataset(
-                num_sources=self._nsrc,
-                data_path=data_path,
-                transform=transform)
-
-            if ds_name == "train" and self._dist:
-                samp = torch.utils.data.distributed.DistributedSampler(dataset)
-            else:
-                samp = None
-
-            dataloader = torch.utils.data.DataLoader(
-                dataset,
-                batch_size=self._config['batch_size'],
-                shuffle=(ds_name == "train" and (samp is None)),
-                num_workers=self._nworker,
-                sampler=samp)
-                # pin_memory=False)
-
-            return dataloader
-
-        if self._m_type == "DNN":
-            transform = custom_dataset.Wav2Spect('Concat')
-            model = dnn.DNN(
-                input_dim=const.N_FREQ * 2,
-                hidden_size=self._config['hidden_size'],
-                num_sources=self._nsrc)
-
-        elif self._m_type == "LSTM_base":
-            transform = custom_dataset.Wav2Spect('Concat')
-            model = lstm_base.LSTM(
-                input_dim=const.N_FREQ * 2,
-                hidden_size=self._config['hidden_size'],
-                num_sources=self._nsrc)
-
-        elif self._m_type == "CSALSTM":
-            transform = custom_dataset.Wav2Spect()
-            model = csa_lstm.CSALSTM(
-                input_dim=const.N_FREQ,
-                num_sources=self._nsrc,
-                hidden_size=self._config['hidden_size'])
-
-        elif self._m_type == "LSTM":
-            transform = custom_dataset.Wav2Spect('Concat')
-            model = custom_models.B1(
-                input_dim=const.N_FREQ * 2,
-                hidden_size=self._config['hidden_size'],
-                num_sources=self._nsrc)
-
-        elif self._m_type == "GAB":
-            # transform = custom_dataset.ToTensor(
-            #     size=(spect_shape['freq_range'], spect_shape['seq_len']))
-            transform = custom_dataset.Wav2Spect()
-            model = custom_models.LookToListenAudio(
-                input_dim=const.N_FREQ,
-                chan=self._config['chan'],
-                num_sources=self._nsrc)
-
-            model = nn.DataParallel(
-                model,
-                device_ids=self._devices,
-                output_device=self._device)
-
-        elif self._m_type == "VTF":
-            # transform = custom_dataset.Concat(
-            #     size=(spect_shape['freq_range'], spect_shape['seq_len']),
-            #     encdec=True)
-            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
-            model = custom_transformer.make_model(
-                input_dim=const.N_FREQ * 2,
-                N=self._config['N'],
-                d_model=self._config['d_model'],
-                d_ff=self._config['d_ff'],
-                h=self._config['h'],
-                num_sources=self._nsrc,
-                dropout=self._config['dropout'])
-
-        # FIXME: seq_len is temporary
-        elif self._m_type in ["STT1", "STTtp", "STTsp", "STT1-CR", "STT2tp", "STT2sp"]:
-            # if self._m_type == "STT3":
-            #     transform = custom_dataset.Wav2Spect('Separate', enc_dec=True)
-            # else:
-            transform = custom_dataset.Wav2Spect('Concat', enc_dec=True)
-
-            cr_args = None
-            if self._m_type in ["STTtp", "STTsp", "STT1-CR", "STT2tp", "STT2sp"]:
-                try:
-                    cr_args = {
-                        'c_out': self._config['c_out'],
-                        'd_out': self._config['d_out'],
-                        'ks2': self._config['ks2'],
-                    }
-                except:
-                    cr_args = {
-                        'c_out': 512,
-                        'd_out': 64,
-                        'ks2': 32
-                    }
-
-            model = custom_transformer.make_stt(
-                input_dim=const.N_FREQ * 2,
-                seq_len=167,
-                stt_type=self._m_type,
-                N=self._config['N'],
-                d_model=self._config['d_model'],
-                d_ff=self._config['d_ff'],
-                h=self._config['h'],
-                num_sources=self._nsrc,
-                dropout=self._config['dropout'],
-                cr_args=cr_args,
-                res_size=self._config['res_size'])
-
-            model = nn.DataParallel(
-                model,
-                device_ids=self._devices,
-                output_device=self._device)
-            logging.debug("Let's use %d GPUs!", torch.cuda.device_count())
-
-        elif self._m_type == "SRNN":
-            # self._config['loss_fn'] = 'Discrim'
-            self._config['optim'] = 'SGD'
-            transform = custom_dataset.Wav2Spect('Concat')
-            model = huang_srnn.SRNN(
-                input_dim=const.N_FREQ * 2,
-                num_sources=self._nsrc,
-                hidden_size=self._config['hidden_size'],
-                dropout=self._config['dropout'])
-
-        elif self._m_type == "DRNN":
-            # self._config['loss_fn'] = 'Discrim'
-            # self._config['optim'] = 'SGD'
-            transform = custom_dataset.Wav2Spect('Concat')
-            model = huang_drnn.DRNN(
-                input_dim=const.N_FREQ * 2,
-                num_sources=self._nsrc,
-                hidden_size=self._config['hidden_size'],
-                k=1,
-                dropout=self._config['dropout'])
-
-        else:
-            logging.error("%s is not supported", self._m_type)
-
-        dataloader = {}
-        dataloader['train'] = get_loader("train")
-        dataloader['test'] = get_loader("val")
-
-        logging.info(
-            "%s using %s as criterion and %s as optimizer",
-            self._m_type,
-            self._config['loss_fn'],
-            self._config['optim'])
-
-        # model.cuda()
-        # model = torch.nn.parallel.DistributedDataParallel(model)
-
-        return dataloader, model.to(self._device)
-
-    def _load_cp(self):
-        config_id = self._config['id']
-
-        logging.info("loading checkpoint from configuration #%d...", config_id)
-
-        checkpoint_path = os.path.join(
-            const.RESULT_PATH_PREFIX,
-            self._etitle,
-            str(config_id),
-            "snapshots",
-            "checkpoint.tar")
-
-        # to continue training
-        cp = torch.load(
-            checkpoint_path,
-            map_location=self._device)
-
-        self._model.load_state_dict(cp['model_state_dict'])
-        self._optim.load_state_dict(cp['optim_state_dict'])
-
-        start_epoch = cp['epoch'] + 1
-        min_loss = cp['min_loss']
-
-        logging.info("checkpoint loaded")
-
+        start_epoch = snapshot['epoch'] + 1 
+        min_loss = snapshot['min_loss']
         return start_epoch, min_loss
+    
+    def _post_result(self, epoch, min_loss):
+        csv_path = self._log_path
+
+    def _sync_tensorboard(self):
+        legend = ""
 
 
 def get_arguments():
-    parser = argparse.ArgumentParser(description='Dataset creation script')
-    parser.add_argument('--gpu_id', type=int, default=0)
+    parser = argparse.ArgumentParser(description='Training')
 
-    parser.add_argument('--model_type', type=str)
-    parser.add_argument('--metric', type=str, default='euclidean')
-    parser.add_argument('--mixing_type', type=int, default=const.INTERCLASS)
-    parser.add_argument('--num_sources', type=int)
-    parser.add_argument('--num_classes', type=int, default=25)
+    parser.add_argument('--config_path', type=str)
+    parser.add_argument('--early_stopping_limit', type=int, default=0)
+    # parser.add_argument('--snapshot_path', type=str)
 
     return parser.parse_args()
 
 
 def main():
-
     args = get_arguments()
 
-    experiment_setup = {
-        'num_configs': 1,
-        'device': torch.device('cuda', args.gpu_id),
-        'num_sources': args.num_sources,
-        'num_classes': args.num_classes,
-        'metric': args.metric,
-        'model_type': args.model_type,
-        'mixing_type': args.mixing_type,
-        'experiment_id': time.strftime("%y%m%d", time.gmtime())
-        }
+    train_dataloader = datasets.setup.prepare_dataset(args.config_path,
+                                                      'train')
 
-    config = {
-        'id': 0,
-        'max_epoch': 400,
-        'lr': 0.0005,
-        'optim': 'Adam',
-        'loss_fn': 'Greedy',
-        'batch_size': 32,
-        'dropout': 0.5,
-        'momentum': 0.5,
-        'beta1': 0.9,
-        'beta2': 0.999,
-        'epsilon': 1e-8,
-        'hidden_size': 512,
-        'in_chan': 4,
-        'chan': 4,
-        'N': 4,
-        'h': 4,
-        'd_model': 256,
-        'd_ff': 256,
-        'gamma': 0.1,
-        'res_size': 128,
-        # 'c_outs': [64, 128, 256, 512],
-        # 'd_outs': [32, 64],
-        # 'ks2s': [16, 32],
-        }
+    val_dataloader = datasets.setup.prepare_dataset(args.config_path,
+                                                    'val')
 
-    experiment_title = utils.get_experiment_title(experiment_setup)
+    model = models.setup.prepare_model(args.config_path,
+                                       train_dataloader.input_shape)
 
-    trainer = Trainer(
-        setup=experiment_setup,
-        config=config,
-        experiment_title=experiment_title,
-        load_checkpoint=False)
+    loss_fn = loss_functions.setup.prepare_loss_fn(args.config_path)
 
-    trainer.fit()
+    snapshot_path = utils.io.resolve_path('snapshot', args)
+
+    # tensorboard_path = utils.experiment.get_path('tensorboard', args)
+
+    experiment = Experiment(model=model,
+                            datasets=datasets,
+                            loss_fn=loss_fn,
+                            snapshot_path=snapshot_path,
+                            early_stopping_limit=args.early_stopping_limit)
+
+    experiment.run()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,37 @@
+{
+    "model": 
+    {
+        "name": "stt",
+        "hyperparameters":
+        {
+            "id": "000",
+            "max_epoch": 400,
+            "lr": 5e-4,
+            "optim": "Adam",
+            "batch_size": 32,
+            "dropout": 0.5,
+            "momentum": 0.5,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "epsilon": 1e-8,
+            "hidden_size": 512,
+            "N": 4,
+            "h": 4,
+            "d_model": 256,
+            "d_ff": 256,
+            "gamma": 0.1,
+            "res_size": 128
+        }
+    },
+
+    "dataset":
+    {
+        "name": "wild-mix",
+        "num_sources": 2,
+        "num_classes": 5,
+        "mix_method": "interclass"
+    },
+
+    "metric": "euclidean",
+    "loss_fn_helper": "pit"
+}
