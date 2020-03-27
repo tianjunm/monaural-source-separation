@@ -2,18 +2,16 @@
 
 
 import json
-import loss_functions
+from . import loss_implementation
 
 
-def prepare_loss_fn(config_path):
-    with open(config_path) as f:
-        config = json.load(f)
-
+def prepare_loss_fn(config):
+       
     model_name = config['model']['name']
 
     if model_name == "cSA-LSTM":
-        loss_fn = loss_functions.CSALoss()
-    # elif model_nme == "STT":
+        loss_fn = loss_implementation.CSALoss()
+    # elif model_nme ==implementation
     #     loss_fn = NoOp()
 
     return loss_fn

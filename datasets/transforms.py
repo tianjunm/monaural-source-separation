@@ -14,8 +14,8 @@ class STFT():
         self._hop_length = 192
 
     def __call__(self, item):
-        input_dimensions = self._info['input_dimensions']
-        output_dimensions = self._info['output_dimensions']
+        input_dimensions = self._info['config']['input_dimensions']
+        output_dimensions = self._info['config']['output_dimensions']
 
         model_input = self._convert_input(item['model_input'],
                                           input_dimensions)
@@ -43,10 +43,10 @@ class STFT():
 
         return spect
 
-    def _convert_gt(self, round_truths, output_dimensions):
+    def _convert_gt(self, ground_truths, output_dimensions):
         if output_dimensions == 'BC2NM':
-            spects = [self._stft(pcm, output_dimensions).permute(2, 1, 0)
-                      for pcm in item['ground_truths']]
+            spects = [self._stft(pcm).permute(2, 1, 0) for pcm in
+                      ground_truths]
             spects = torch.stack(spects, dim=0)
 
         return spects

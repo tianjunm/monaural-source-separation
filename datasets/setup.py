@@ -2,11 +2,12 @@
 
 
 import json
-from dataloaders import WildMix
-from transforms import STFT
+import torch
+from . import dataloaders
+from . import transforms
 
 
-def prepare_dataset(config_path, dataset_split):
+def prepare_dataloader(config, dataset_split):
     """Return a loadable dataset.
 
     Args:
@@ -16,23 +17,24 @@ def prepare_dataset(config_path, dataset_split):
     Returns:
         train_data, val_data
     """
-
-    with open(config_path) as f:
-        config = json.load(f)
+    batch_size = config['model']['config']['batch_size']
 
     dataset_info = config['dataset']
 
     if dataset_info['name'] == 'wild-mix':
 
         if dataset_info['transform'] == 'stft':
-            transform = STFT(dataset_info)
+            transform = transforms.STFT(dataset_info)
 
         elif dataset_info['transform'] == 'pcm':
             transform = None
 
-        dataset = WildMix(dataset_info, dataset_split, transform=transform)
+        dataset = dataloaders.WildMix(dataset_info['config'], dataset_split,
+                                      transform=transform)
 
     elif dataset_info['name'] == 'avspeech':
         pass
 
-    return dataset
+    return torch.utils.data.DataLoader(dataset,
+                                       batch_size=batch_size,
+                                       shuffle=(dataset_split == 'train'))

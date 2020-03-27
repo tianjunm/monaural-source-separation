@@ -3,7 +3,7 @@
 
 
 import torch.nn as nn
-from helpers import perm_invariant
+from . import helpers
 
 
 class CSALoss(nn.Module):
@@ -20,7 +20,7 @@ class CSALoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    @perm_invariant
+    @helpers.perm_invariant
     def forward(self, model_input, model_output, ground_truths):
         """Calculates the loss using the cost function of cSA-based method.
 

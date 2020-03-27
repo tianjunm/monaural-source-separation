@@ -21,15 +21,26 @@ import datasets.setup
 import loss_functions.setup
 
 
+EXPERIMENTS_ROOT = '/work/tianjunm/monaural-source-separation/experiments'
+
+
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 
 
 class Experiment():
-    def __init__(self, data, snapshot_path, loss_function):
-        self._train_data, self._val_data = data
+    def __init__(self,
+                 train_loader,
+                 val_loader,
+                 loss_function,
+                 save_path,
+                 load_path=None):
+
+        self.identifier = time.strftime("%y%m%d", time.gmtime())
+        self._train_loader = train_loader
+        self._val_loader = val_loader
         self._loss_fn = loss_function
 
-    def run(self): 
+    def run(self):
         start_epoch, min_loss = self._load_checkpoint()
 
         for epoch in range(start_epoch, min_loss):
@@ -133,7 +144,7 @@ def get_arguments():
 
     parser.add_argument('--config_path', type=str)
     parser.add_argument('--early_stopping_limit', type=int, default=0)
-    # parser.add_argument('--snapshot_path', type=str)
+    parser.add_argument('--checkpoint_load_path', type=str)
 
     return parser.parse_args()
 
@@ -141,26 +152,27 @@ def get_arguments():
 def main():
     args = get_arguments()
 
-    train_dataloader = datasets.setup.prepare_dataset(args.config_path,
-                                                      'train')
+    with open(config_path) as f:
+        config = json.load(f)
 
-    val_dataloader = datasets.setup.prepare_dataset(args.config_path,
-                                                    'val')
+    train_dataloader = datasets.setup.prepare_dataloader(config, 'train')
 
-    model = models.setup.prepare_model(args.config_path,
-                                       train_dataloader.input_shape)
+    val_dataloader = datasets.setup.prepare_dataloader(config, 'val')
 
-    loss_fn = loss_functions.setup.prepare_loss_fn(args.config_path)
+    input_shape = train_dataloader.dataset.input_shape
+    model = models.setup.prepare_model(config, input_shape)
 
-    snapshot_path = utils.io.resolve_path('snapshot', args)
+    loss_fn = loss_functions.setup.prepare_loss_fn(config)
 
     # tensorboard_path = utils.experiment.get_path('tensorboard', args)
 
     experiment = Experiment(model=model,
-                            datasets=datasets,
+                            train_loader=train_dataloader,
+                            val_dataloader=val_dataloader,
                             loss_fn=loss_fn,
-                            snapshot_path=snapshot_path,
-                            early_stopping_limit=args.early_stopping_limit)
+                            early_stopping_limit=args.early_stopping_limit,
+                            max_epochs=config['model']['config']['max_epoch'],
+                            load_path=args.checkpoint_load_path)
 
     experiment.run()
 

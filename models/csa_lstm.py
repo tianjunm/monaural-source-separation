@@ -7,7 +7,6 @@ class CSALSTM(nn.Module):
     """cSA-based LSTM"""
 
     def __init__(self, input_size, num_sources, hidden_size=512):
-
         super().__init__()
         self.m = input_size
         self.c = num_sources
