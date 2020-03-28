@@ -161,6 +161,7 @@ def main():
 
     input_shape = train_dataloader.dataset.input_shape
     model = models.setup.prepare_model(config, input_shape)
+    model = model.to(utils.hardware.get_device())
 
     loss_fn = loss_functions.setup.prepare_loss_fn(config)
 

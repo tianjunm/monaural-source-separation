@@ -35,12 +35,13 @@ class CSALoss(nn.Module):
             loss: [batch_size]
 
         """
-        Y_r, Y_i = model_input[:, 0], model_input[:, 1]
+        Y_r = model_input[:, 0].unsqueeze(1)
+        Y_i = model_input[:, 1].unsqueeze(1)
+
         M_r, M_i = model_output[:, :, 0], model_output[:, :, 1]
         S_r, S_i = ground_truths[:, :, 0], ground_truths[:, :, 1]
 
-        J_1 = M_r * Y_r - M_i * Y_i - S_r
-        J_2 = M_r * Y_i + M_i * Y_r - S_i
+        J_1 = ((M_r * Y_r - M_i * Y_i - S_r) ** 2).sum(axis=[1, 2, 3])
+        J_2 = ((M_r * Y_i + M_i * Y_r - S_i) ** 2).sum(axis=[1, 2, 3])
 
         return J_1 + J_2
-        # print(model_input)

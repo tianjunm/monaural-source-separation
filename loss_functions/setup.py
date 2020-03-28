@@ -6,7 +6,7 @@ from . import loss_implementation
 
 
 def prepare_loss_fn(config):
-       
+
     model_name = config['model']['name']
 
     if model_name == "cSA-LSTM":

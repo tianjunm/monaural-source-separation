@@ -5,6 +5,9 @@ Helper functions that add additional functionalities to loss functions.
 """
 
 
+import torch
+
+
 def get_all_permutations(n):
     if n <= 1:
         return [[0]]
@@ -29,17 +32,17 @@ def perm_invariant(func):
         model_input = args[1]
         ground_truths = args[3]
         # c = ground_truths
-        c = ground_truths.size(2)
+        b = ground_truths.size(0)
+        c = ground_truths.size(1)
 
         perms = get_all_permutations(c)
 
-        min_loss = None
-        for perm in perms:
-            loss = func(args[0], model_input[perm], args[2], ground_truths)
-            if min_loss is None or loss.item() < min_loss.item():
-                min_loss = loss
+        losses = torch.zeros(b, len(perms))
+        for i, perm in enumerate(perms):
+            loss = func(args[0], model_input[:, perm], args[2], ground_truths)
+            losses[:, i] = loss
 
-        return min_loss
+        return losses.min(axis=-1).values.mean()
 
     return wrapper_perm_invariant
 
