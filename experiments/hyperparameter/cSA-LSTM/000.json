@@ -1,0 +1,41 @@
+{
+    "id": "000",
+    "model": 
+    {
+        "name": "cSA-LSTM",
+        "config":
+        {
+            "max_epoch": 400,
+            "batch_size": 32,
+            "dropout": 0.5,
+            "hidden_size": 512
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 5e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "dataset":
+    {
+        "name": "wild-mix",
+        "transform": "stft",
+        "config":
+        {
+            "input_dimensions": "B2NM",
+            "output_dimensions": "BC2NM",
+            "mix_method": 0,
+            "num_sources": 2,
+            "num_classes": 5,
+            "mixture_duration": 2,
+            "sample_rate": 16000
+        }
+    }
+}
