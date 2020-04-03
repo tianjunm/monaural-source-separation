@@ -24,7 +24,7 @@ import utils.io
 import utils.hardware
 
 
-EXPERIMENTS_ROOT = '/work/tianjunm/monaural-source-separation/experiments'
+PATH_TO_RESULTS = '/results/tianjunm/monaural-source-separation/experiments'
 
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
@@ -58,6 +58,7 @@ class Experiment():
         self._load_path = load_path
 
     def run(self, record_path, checkpoint_freq=50, early_stopping_limit=None):
+        logging.info(f'starts experiment: {self._save_path_prefix}')
         start_epoch, min_loss = self._load_snapshot()
 
         counter = 0
@@ -82,8 +83,6 @@ class Experiment():
             logging.info('epoch %3d, train loss: %.2f, val loss: %.2f',
                          epoch, train_loss, val_loss)
 
-            # print(f'epoch {epoch}, train loss: {train_loss}, val loss: {val_loss}')
-
         self._save_record(record_path, epoch, min_loss)
 
     def _train_step(self):
@@ -102,7 +101,7 @@ class Experiment():
             self._optim.step()
 
             running_loss += loss.item()
-            iters += batch['model_input'].size(0)
+            iters += 1
 
         return running_loss / iters
 
@@ -119,7 +118,7 @@ class Experiment():
                 model_output = self._model(model_input)
                 loss = self._loss_fn(model_input, model_output, ground_truths)
                 running_loss += loss.item()
-                iters += batch['model_input'].size(0)
+                iters += 1
 
         return running_loss / iters
 
@@ -162,8 +161,9 @@ class Experiment():
             'snapshot_path': snapshot_path
         }
 
+        utils.io.make_dir(record_path)
         with open(record_path, 'a+') as f:
-            csv_writer = csv.DictWriter(f, fieldnames=record_fields)
+            csv_writer = csv.DictWriter(f, fieldnames=record.keys())
             csv_writer.writerow(record)
 
     # def _sync_tensorboard(self):
@@ -177,7 +177,6 @@ def get_arguments():
     parser.add_argument('--early_stopping_limit', type=int)
     parser.add_argument('--checkpoint_freq', type=int)
     parser.add_argument('--checkpoint_load_path', type=str)
-    parser.add_argument('--record_path', type=str)
 
     return parser.parse_args()
 
@@ -194,11 +193,27 @@ def prepare_optimizer(model, config):
 
 
 def prepare_save_path(config):
-    save_path_prefix = os.path.join(EXPERIMENTS_ROOT,
+    save_path_prefix = os.path.join(PATH_TO_RESULTS,
                                     'snapshots',
                                     config['model']['name'],
                                     config['id'])
+
     return save_path_prefix
+
+
+def prepare_record_path(config):
+    dataset_name = config['dataset']['name']
+    mix_method = config['dataset']['config']['mix_method']
+    nsrc = config['dataset']['config']['num_sources']
+    ncls = config['dataset']['config']['num_classes']
+    filename = f't{mix_method}-{nsrc}s-{ncls}c.csv'
+
+    record_path = os.path.join(PATH_TO_RESULTS,
+                               'records',
+                               dataset_name,
+                               filename)
+
+    return record_path
 
 
 def main():
@@ -221,6 +236,7 @@ def main():
 
     # tensorboard_path = utils.experiment.get_path('tensorboard', args)
     save_path_prefix = prepare_save_path(config)
+    record_path = prepare_record_path(config)
 
     logging.info('finished setting up training')
 
@@ -235,7 +251,7 @@ def main():
                             config_id=config['id'],
                             load_path=args.checkpoint_load_path)
 
-    experiment.run(args.record_path, args.checkpoint_freq,
+    experiment.run(record_path, args.checkpoint_freq,
                    args.early_stopping_limit)
 
 

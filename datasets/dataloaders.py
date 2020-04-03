@@ -15,7 +15,7 @@ from torch.utils.data import Dataset
 from mmsdk import mmdatasdk
 
 
-DATA_ROOT = '/work/tianjunm/datasets'
+DATA_ROOT = '/results/tianjunm/datasets'
 
 
 class WildMix(Dataset):
@@ -105,7 +105,7 @@ class WildMix(Dataset):
         path = os.path.join(DATA_ROOT,
                             'audioset_verified',
                             'csd_format',
-                            'cut_normalized',
+                            'cut',
                             '16000')
         files = {}
         for csd_file in os.listdir(path):

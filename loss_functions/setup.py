@@ -9,8 +9,10 @@ def prepare_loss_fn(config):
 
     model_name = config['model']['name']
 
-    if model_name == "cSA-LSTM":
+    if (model_name == "cSA-LSTM" or
+       model_name == "BLSTM"):
         loss_fn = loss_implementation.CSALoss()
+
     # elif model_nme ==implementation
     #     loss_fn = NoOp()
 

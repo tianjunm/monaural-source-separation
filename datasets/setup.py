@@ -29,6 +29,7 @@ def prepare_dataloader(config, dataset_split):
         elif dataset_info['transform'] == 'pcm':
             transform = None
 
+        print(dataset_info)
         dataset = dataloaders.WildMix(dataset_info['config'], dataset_split,
                                       transform=transform)
 

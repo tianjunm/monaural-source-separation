@@ -1,20 +1,24 @@
 {
+    "id": "001",
     "model": 
     {
-        "id": "000",
         "name": "cSA-LSTM",
         "config":
         {
-            "max_epoch": 400,
-            "lr": 5e-4,
-            "optim": "Adam",
-            "batch_size": 32,
-            "dropout": 0.5,
-            "momentum": 0.5,
-            "beta1": 0.9,
-            "beta2": 0.999,
-            "epsilon": 1e-8,
-            "hidden_size": 512
+            "max_epoch": 100,
+            "batch_size": 64,
+            "hidden_size": 128
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
         }
     },
 

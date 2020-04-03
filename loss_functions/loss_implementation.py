@@ -36,8 +36,8 @@ class CSALoss(nn.Module):
             loss: [batch_size]
 
         """
-        c = model_input.size(1)
-        # assert c == 2
+        c = model_output.size(1)
+
         Y_r = model_input[:, 0].unsqueeze(1)
         Y_i = model_input[:, 1].unsqueeze(1)
 
@@ -47,4 +47,6 @@ class CSALoss(nn.Module):
         J_1 = ((M_r * Y_r - M_i * Y_i - S_r) ** 2).mean(axis=[1, 2, 3])
         J_2 = ((M_r * Y_i + M_i * Y_r - S_i) ** 2).mean(axis=[1, 2, 3])
 
-        return (J_1 + J_2) / c
+        loss = (J_1 + J_2) / c
+
+        return loss

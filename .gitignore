@@ -5,3 +5,8 @@ __pycache__
 
 # dev files
 __disorganized__
+debug.ipynb
+
+# results
+experiments/snapshots
+experiments/sbatch_logs

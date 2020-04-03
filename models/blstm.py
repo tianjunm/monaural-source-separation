@@ -3,17 +3,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class CSALSTM(nn.Module):
-    """cSA-based LSTM"""
+class BLSTM(nn.Module):
+    """BLSTM"""
 
-    def __init__(self, input_size, num_sources, hidden_size=512):
+    def __init__(self, input_size, num_sources, dmodel, hidden_size=512):
         super().__init__()
         self.m = input_size
         self.c = num_sources
-        self.lstm_r = nn.LSTM(input_size, hidden_size, batch_first=True)
-        self.lstm_i = nn.LSTM(input_size, hidden_size, batch_first=True)
-        self.fc_r = nn.Linear(hidden_size, self.c * self.m)
-        self.fc_i = nn.Linear(hidden_size, self.c * self.m)
+        self.enc_r = nn.Linear(input_size, dmodel)
+        self.enc_i = nn.Linear(input_size, dmodel)
+        self.blstm_r = nn.LSTM(dmodel, hidden_size, batch_first=True,
+                               bidirectional=True)
+        self.blstm_i = nn.LSTM(dmodel, hidden_size, batch_first=True,
+                               bidirectional=True)
+        self.fc_r = nn.Linear(2 * hidden_size, self.c * self.m)
+        self.fc_i = nn.Linear(2 * hidden_size, self.c * self.m)
 
     def forward(self, x):
         """
@@ -37,8 +41,8 @@ class CSALSTM(nn.Module):
 
         # x = torch.cat([x_real, x_imag], dim=-1)
 
-        out_r, _ = self.lstm_r(x_r)
-        out_i, _ = self.lstm_i(x_i)
+        out_r, _ = self.blstm_r(F.relu(self.enc_r(x_r)))
+        out_i, _ = self.blstm_i(F.relu(self.enc_i(x_i)))
 
         M_r = self.fc_r(F.relu(out_r)).view(b, self.c, n, self.m)
         M_i = self.fc_i(F.relu(out_i)).view(b, self.c, n, self.m)

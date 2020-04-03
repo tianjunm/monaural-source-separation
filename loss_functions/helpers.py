@@ -30,8 +30,9 @@ def perm_invariant(func):
 
     def wrapper_perm_invariant(*args):
         model_input = args[1]
+        model_output = args[2]
         ground_truths = args[3]
-        # c = ground_truths
+
         b = ground_truths.size(0)
         c = ground_truths.size(1)
 
@@ -39,7 +40,8 @@ def perm_invariant(func):
 
         losses = torch.zeros(b, len(perms))
         for i, perm in enumerate(perms):
-            loss = func(args[0], model_input[:, perm], args[2], ground_truths)
+            loss = func(args[0], model_input, model_output[:, perm],
+                        ground_truths)
             losses[:, i] = loss
 
         return losses.min(axis=-1).values.mean()
