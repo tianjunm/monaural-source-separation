@@ -9,4 +9,4 @@ debug.ipynb
 
 # results
 experiments/snapshots
-experiments/sbatch_logs
+*.out

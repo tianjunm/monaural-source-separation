@@ -1,5 +1,0 @@
-usage: train.py [-h] [--model_spec MODEL_SPEC] [--dataset_spec DATASET_SPEC]
-                [--early_stopping_limit EARLY_STOPPING_LIMIT]
-                [--checkpoint_freq CHECKPOINT_FREQ]
-                [--checkpoint_load_path CHECKPOINT_LOAD_PATH]
-train.py: error: unrecognized arguments: --config_path /work/tianjunm/monaural-source-separation/experiments/hyperparameter/cSA-LSTM/t0-2s-5c/paper.json
