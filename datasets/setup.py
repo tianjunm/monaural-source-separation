@@ -7,33 +7,30 @@ from . import dataloaders
 from . import transforms
 
 
-def prepare_dataloader(config, dataset_split):
+def prepare_dataloader(dataset_spec, model_spec, dataset_split):
     """Return a loadable dataset.
 
     Args:
-        config_path
+        dataset_spec
         dataset_split: indicates train, val, or test
 
     Returns:
         train_data, val_data
     """
-    batch_size = config['model']['config']['batch_size']
+    batch_size = model_spec['model']['config']['batch_size']
 
-    dataset_info = config['dataset']
+    if dataset_spec['name'] == 'wild-mix':
 
-    if dataset_info['name'] == 'wild-mix':
+        if dataset_spec['transform'] == 'stft':
+            transform = transforms.STFT(dataset_spec)
 
-        if dataset_info['transform'] == 'stft':
-            transform = transforms.STFT(dataset_info)
-
-        elif dataset_info['transform'] == 'pcm':
+        elif dataset_spec['transform'] == 'pcm':
             transform = None
 
-        print(dataset_info)
-        dataset = dataloaders.WildMix(dataset_info['config'], dataset_split,
+        dataset = dataloaders.WildMix(dataset_spec['config'], dataset_split,
                                       transform=transform)
 
-    elif dataset_info['name'] == 'avspeech':
+    elif dataset_spec['name'] == 'avspeech':
         pass
 
     return torch.utils.data.DataLoader(dataset,

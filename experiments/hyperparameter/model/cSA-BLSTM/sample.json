@@ -1,0 +1,27 @@
+{
+    "id": "sample",
+    "model": 
+    {
+        "name": "cSA-BLSTM",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 64,
+            "embed_dim": 256,
+            "output_dim": 512,
+            "num_layers": 3,
+            "hidden_size": 512
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "RMSprop",
+        "config":
+        {
+            "lr": 1e-3
+        }
+    },
+
+    "loss_function": "CSALoss"
+}

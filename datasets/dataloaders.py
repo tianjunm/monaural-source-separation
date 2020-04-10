@@ -122,11 +122,15 @@ class WildMix(Dataset):
 
         filename = f't{mix_method}-{nsrc}s-{ncls}c/{dataset_split}.csv'
         path = os.path.join(DATA_ROOT, 'wild-mix', filename)
-        return pd.read_csv(path)
+        augmentation = pd.read_csv(path)
+
+        print(augmentation.category.unique())
+        return augmentation
 
     @staticmethod
     def _clip(raw_source, start, duration):
         n = raw_source.shape[1]  # number of frames
+        # print(raw_source.shape)
         start_frame = int(start * n)
         clip = raw_source[:, start_frame:min(n, start_frame + duration)]
         return clip.flatten()
@@ -135,6 +139,9 @@ class WildMix(Dataset):
     def _pad(clip, mixture_length, placement):
         # follow the datapoint spec to create ground truths
         prefix = np.zeros(placement) * 1.0
+        # print(mixture_length)
+        # print(len(clip))
+        # print(placement)
         suffix = np.zeros(mixture_length - len(clip) - placement) * 1.0
 
         # padded_wav = pad_before + wav + pad_after

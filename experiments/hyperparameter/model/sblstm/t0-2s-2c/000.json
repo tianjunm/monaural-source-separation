@@ -1,0 +1,43 @@
+{
+    "id": "000",
+    "model": 
+    {
+        "name": "SingleBLSTM",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 32,
+            "dmodel": 64,
+            "hidden_size": 128
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "dataset":
+    {
+        "name": "wild-mix",
+        "transform": "stft",
+        "config":
+        {
+            "input_dimensions": "B2NM",
+            "output_dimensions": "BC2NM",
+            "mix_method": 0,
+            "num_sources": 2,
+            "num_classes": 2,
+            "mixture_duration": 4,
+            "sample_rate": 16000
+        }
+    },
+
+    "loss_function": "CSALoss"
+}

@@ -1,0 +1,586 @@
+  0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 21%|██        | 21/99 [00:00<00:00, 207.79 Computational Sequence Entries/s] 34%|███▍      | 34/99 [00:00<00:00, 156.60 Computational Sequence Entries/s] 54%|█████▎    | 53/99 [00:00<00:00, 154.81 Computational Sequence Entries/s] 82%|████████▏ | 81/99 [00:00<00:00, 178.78 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 56%|█████▌    | 56/100 [00:00<00:00, 547.67 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 34%|███▍      | 34/100 [00:00<00:00, 313.24 Computational Sequence Entries/s] 65%|██████▌   | 65/100 [00:00<00:00, 290.01 Computational Sequence Entries/s] 81%|████████  | 81/100 [00:00<00:00, 232.61 Computational Sequence Entries/s]100%|██████████| 100/100 [00:00<00:00, 201.55 Computational Sequence Entries/s]                                                                                 0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s] 12%|█▏        | 12/98 [00:00<00:00, 111.84 Computational Sequence Entries/s] 26%|██▌       | 25/98 [00:00<00:00, 112.98 Computational Sequence Entries/s] 38%|███▊      | 37/98 [00:00<00:00, 114.62 Computational Sequence Entries/s] 47%|████▋     | 46/98 [00:00<00:00, 97.55 Computational Sequence Entries/s]  67%|██████▋   | 66/98 [00:00<00:00, 114.68 Computational Sequence Entries/s] 88%|████████▊ | 86/98 [00:00<00:00, 131.14 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 34%|███▍      | 34/100 [00:00<00:00, 314.89 Computational Sequence Entries/s] 51%|█████     | 51/100 [00:00<00:00, 244.16 Computational Sequence Entries/s] 63%|██████▎   | 63/100 [00:00<00:00, 162.87 Computational Sequence Entries/s] 84%|████████▍ | 84/100 [00:00<00:00, 173.90 Computational Sequence Entries/s]                                                                                0%|          | 0/102 [00:00<?, ? Computational Sequence Entries/s] 25%|██▌       | 26/102 [00:00<00:00, 164.83 Computational Sequence Entries/s] 30%|███       | 31/102 [00:00<00:01, 46.42 Computational Sequence Entries/s]  60%|█████▉    | 61/102 [00:00<00:00, 61.69 Computational Sequence Entries/s] 78%|███████▊  | 80/102 [00:00<00:00, 75.16 Computational Sequence Entries/s] 94%|█████████▍| 96/102 [00:00<00:00, 88.80 Computational Sequence Entries/s]                                                                               0%|          | 0/102 [00:00<?, ? Computational Sequence Entries/s] 28%|██▊       | 29/102 [00:00<00:00, 285.18 Computational Sequence Entries/s] 55%|█████▍    | 56/102 [00:00<00:00, 279.66 Computational Sequence Entries/s] 77%|███████▋  | 79/102 [00:00<00:00, 245.72 Computational Sequence Entries/s] 94%|█████████▍| 96/102 [00:00<00:00, 191.49 Computational Sequence Entries/s]                                                                                0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 45%|████▌     | 45/99 [00:00<00:00, 343.15 Computational Sequence Entries/s] 66%|██████▌   | 65/99 [00:00<00:00, 244.56 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 45%|████▌     | 45/99 [00:00<00:00, 371.86 Computational Sequence Entries/s] 58%|█████▊    | 57/99 [00:00<00:00, 195.89 Computational Sequence Entries/s] 73%|███████▎  | 72/99 [00:00<00:00, 167.70 Computational Sequence Entries/s] 85%|████████▍ | 84/99 [00:00<00:00, 130.67 Computational Sequence Entries/s] 96%|█████████▌| 95/99 [00:00<00:00, 103.46 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]  2%|▏         | 2/99 [00:00<00:05, 19.29 Computational Sequence Entries/s]  8%|▊         | 8/99 [00:00<00:03, 24.18 Computational Sequence Entries/s] 17%|█▋        | 17/99 [00:00<00:02, 30.63 Computational Sequence Entries/s] 29%|██▉       | 29/99 [00:00<00:01, 37.82 Computational Sequence Entries/s] 40%|████      | 40/99 [00:00<00:01, 46.46 Computational Sequence Entries/s] 47%|████▋     | 47/99 [00:00<00:01, 47.54 Computational Sequence Entries/s] 57%|█████▋    | 56/99 [00:00<00:00, 51.84 Computational Sequence Entries/s] 64%|██████▎   | 63/99 [00:00<00:00, 54.06 Computational Sequence Entries/s] 80%|███████▉  | 79/99 [00:01<00:00, 66.43 Computational Sequence Entries/s] 89%|████████▉ | 88/99 [00:01<00:00, 70.77 Computational Sequence Entries/s]                                                                              0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 14%|█▍        | 14/100 [00:00<00:00, 125.28 Computational Sequence Entries/s] 21%|██        | 21/100 [00:00<00:00, 99.05 Computational Sequence Entries/s]  50%|█████     | 50/100 [00:00<00:00, 121.47 Computational Sequence Entries/s] 68%|██████▊   | 68/100 [00:00<00:00, 130.42 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 20%|██        | 20/100 [00:00<00:00, 198.72 Computational Sequence Entries/s] 28%|██▊       | 28/100 [00:00<00:00, 110.03 Computational Sequence Entries/s] 59%|█████▉    | 59/100 [00:00<00:00, 120.57 Computational Sequence Entries/s] 76%|███████▌  | 76/100 [00:00<00:00, 127.79 Computational Sequence Entries/s] 87%|████████▋ | 87/100 [00:00<00:00, 96.50 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 77%|███████▋  | 77/100 [00:00<00:00, 758.74 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 27%|██▋       | 27/100 [00:00<00:00, 236.34 Computational Sequence Entries/s] 44%|████▍     | 44/100 [00:00<00:00, 198.81 Computational Sequence Entries/s]                                                                                0%|          | 0/105 [00:00<?, ? Computational Sequence Entries/s] 35%|███▌      | 37/105 [00:00<00:00, 308.65 Computational Sequence Entries/s] 46%|████▌     | 48/105 [00:00<00:00, 156.31 Computational Sequence Entries/s] 67%|██████▋   | 70/105 [00:00<00:00, 166.97 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 30%|███       | 30/100 [00:00<00:00, 270.93 Computational Sequence Entries/s] 44%|████▍     | 44/100 [00:00<00:00, 197.41 Computational Sequence Entries/s] 54%|█████▍    | 54/100 [00:00<00:00, 119.66 Computational Sequence Entries/s] 93%|█████████▎| 93/100 [00:00<00:00, 150.86 Computational Sequence Entries/s]                                                                                0%|          | 0/101 [00:00<?, ? Computational Sequence Entries/s] 51%|█████▏    | 52/101 [00:00<00:00, 385.13 Computational Sequence Entries/s] 63%|██████▎   | 64/101 [00:00<00:00, 178.09 Computational Sequence Entries/s] 77%|███████▋  | 78/101 [00:00<00:00, 150.25 Computational Sequence Entries/s] 93%|█████████▎| 94/101 [00:00<00:00, 152.75 Computational Sequence Entries/s]                                                                                0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]  6%|▌         | 6/99 [00:00<00:01, 51.40 Computational Sequence Entries/s] 29%|██▉       | 29/99 [00:00<00:01, 66.08 Computational Sequence Entries/s] 44%|████▍     | 44/99 [00:00<00:00, 78.20 Computational Sequence Entries/s] 68%|██████▊   | 67/99 [00:00<00:00, 97.15 Computational Sequence Entries/s] 82%|████████▏ | 81/99 [00:00<00:00, 105.23 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 46%|████▌     | 46/100 [00:00<00:00, 403.11 Computational Sequence Entries/s]                                                                                0%|          | 0/96 [00:00<?, ? Computational Sequence Entries/s] 19%|█▉        | 18/96 [00:00<00:00, 179.24 Computational Sequence Entries/s] 88%|████████▊ | 84/96 [00:00<00:00, 228.23 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 16%|█▌        | 16/99 [00:00<00:00, 135.31 Computational Sequence Entries/s] 43%|████▎     | 43/99 [00:00<00:00, 159.03 Computational Sequence Entries/s] 73%|███████▎  | 72/99 [00:00<00:00, 183.87 Computational Sequence Entries/s] 90%|████████▉ | 89/99 [00:00<00:00, 125.20 Computational Sequence Entries/s]                                                                               0%|          | 0/101 [00:00<?, ? Computational Sequence Entries/s] 31%|███       | 31/101 [00:00<00:00, 309.13 Computational Sequence Entries/s] 72%|███████▏  | 73/101 [00:00<00:00, 335.61 Computational Sequence Entries/s] 92%|█████████▏| 93/101 [00:00<00:00, 240.54 Computational Sequence Entries/s]                                                                                0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s] 19%|█▉        | 19/98 [00:00<00:00, 186.94 Computational Sequence Entries/s] 62%|██████▏   | 61/98 [00:00<00:00, 223.25 Computational Sequence Entries/s] 80%|███████▉  | 78/98 [00:00<00:00, 173.50 Computational Sequence Entries/s] 99%|█████████▉| 97/98 [00:00<00:00, 177.09 Computational Sequence Entries/s]                                                                               0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s] 29%|██▉       | 44/150 [00:00<00:00, 382.50 Computational Sequence Entries/s] 47%|████▋     | 71/150 [00:00<00:00, 325.74 Computational Sequence Entries/s] 67%|██████▋   | 100/150 [00:00<00:00, 313.20 Computational Sequence Entries/s] 85%|████████▍ | 127/150 [00:00<00:00, 297.71 Computational Sequence Entries/s]                                                                                 0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s] 27%|██▋       | 41/150 [00:00<00:00, 396.73 Computational Sequence Entries/s] 65%|██████▍   | 97/150 [00:00<00:00, 431.29 Computational Sequence Entries/s]                                                                                0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 24%|██▍       | 24/99 [00:00<00:00, 224.25 Computational Sequence Entries/s] 42%|████▏     | 42/99 [00:00<00:00, 200.65 Computational Sequence Entries/s] 73%|███████▎  | 72/99 [00:00<00:00, 222.54 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 53%|█████▎    | 53/100 [00:00<00:00, 500.71 Computational Sequence Entries/s] 87%|████████▋ | 87/100 [00:00<00:00, 434.33 Computational Sequence Entries/s]                                                                                0%|          | 0/97 [00:00<?, ? Computational Sequence Entries/s] 62%|██████▏   | 60/97 [00:00<00:00, 591.78 Computational Sequence Entries/s] 93%|█████████▎| 90/97 [00:00<00:00, 437.56 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 15%|█▌        | 15/99 [00:00<00:00, 135.23 Computational Sequence Entries/s] 52%|█████▏    | 51/99 [00:00<00:00, 165.61 Computational Sequence Entries/s] 66%|██████▌   | 65/99 [00:00<00:00, 128.73 Computational Sequence Entries/s] 85%|████████▍ | 84/99 [00:00<00:00, 141.11 Computational Sequence Entries/s]                                                                               0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s]  9%|▉         | 14/150 [00:00<00:01, 123.55 Computational Sequence Entries/s] 16%|█▌        | 24/150 [00:00<00:01, 114.83 Computational Sequence Entries/s] 21%|██        | 31/150 [00:00<00:01, 62.11 Computational Sequence Entries/s]  54%|█████▍    | 81/150 [00:00<00:00, 84.03 Computational Sequence Entries/s] 95%|█████████▌| 143/150 [00:00<00:00, 113.45 Computational Sequence Entries/s]                                                                                 0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s] 34%|███▎      | 33/98 [00:00<00:00, 279.40 Computational Sequence Entries/s] 79%|███████▊  | 77/98 [00:00<00:00, 222.11 Computational Sequence Entries/s] 90%|████████▉ | 88/98 [00:00<00:00, 113.11 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 29%|██▉       | 29/100 [00:00<00:00, 260.33 Computational Sequence Entries/s] 41%|████      | 41/100 [00:00<00:00, 191.07 Computational Sequence Entries/s] 56%|█████▌    | 56/100 [00:00<00:00, 163.17 Computational Sequence Entries/s] 75%|███████▌  | 75/100 [00:00<00:00, 146.79 Computational Sequence Entries/s] 91%|█████████ | 91/100 [00:00<00:00, 146.64 Computational Sequence Entries/s]                                                                                0%|          | 0/103 [00:00<?, ? Computational Sequence Entries/s] 29%|██▉       | 30/103 [00:00<00:00, 272.23 Computational Sequence Entries/s] 54%|█████▍    | 56/103 [00:00<00:00, 264.09 Computational Sequence Entries/s] 72%|███████▏  | 74/103 [00:00<00:00, 229.53 Computational Sequence Entries/s]100%|██████████| 103/103 [00:00<00:00, 241.87 Computational Sequence Entries/s]                                                                                 0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 28%|██▊       | 28/99 [00:00<00:00, 275.64 Computational Sequence Entries/s] 62%|██████▏   | 61/99 [00:00<00:00, 184.96 Computational Sequence Entries/s] 79%|███████▉  | 78/99 [00:00<00:00, 154.84 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 95%|█████████▌| 95/100 [00:00<00:00, 948.61 Computational Sequence Entries/s]                                                                                0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 71%|███████   | 70/99 [00:00<00:00, 697.89 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 33%|███▎      | 33/100 [00:00<00:00, 300.36 Computational Sequence Entries/s] 51%|█████     | 51/100 [00:00<00:00, 133.94 Computational Sequence Entries/s] 71%|███████   | 71/100 [00:00<00:00, 148.40 Computational Sequence Entries/s] 83%|████████▎ | 83/100 [00:00<00:00, 117.84 Computational Sequence Entries/s]                                                                                0%|          | 0/96 [00:00<?, ? Computational Sequence Entries/s] 14%|█▎        | 13/96 [00:00<00:00, 104.89 Computational Sequence Entries/s] 53%|█████▎    | 51/96 [00:00<00:00, 133.62 Computational Sequence Entries/s] 68%|██████▊   | 65/96 [00:00<00:00, 83.92 Computational Sequence Entries/s]  86%|████████▋ | 83/96 [00:00<00:00, 99.64 Computational Sequence Entries/s]                                                                              0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s] 11%|█         | 11/98 [00:00<00:02, 35.78 Computational Sequence Entries/s] 23%|██▎       | 23/98 [00:00<00:01, 44.42 Computational Sequence Entries/s] 43%|████▎     | 42/98 [00:00<00:00, 57.46 Computational Sequence Entries/s] 54%|█████▍    | 53/98 [00:00<00:00, 64.85 Computational Sequence Entries/s]                                                                              0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 25%|██▌       | 25/100 [00:00<00:00, 208.35 Computational Sequence Entries/s] 87%|████████▋ | 87/100 [00:00<00:00, 259.96 Computational Sequence Entries/s]                                                                                0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 23%|██▎       | 23/99 [00:00<00:00, 204.34 Computational Sequence Entries/s] 62%|██████▏   | 61/99 [00:00<00:00, 222.72 Computational Sequence Entries/s] 75%|███████▍  | 74/99 [00:00<00:00, 130.52 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]  8%|▊         | 8/100 [00:00<00:01, 72.63 Computational Sequence Entries/s] 36%|███▌      | 36/100 [00:00<00:00, 92.23 Computational Sequence Entries/s] 58%|█████▊    | 58/100 [00:00<00:00, 110.87 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 26%|██▌       | 26/100 [00:00<00:00, 250.09 Computational Sequence Entries/s] 40%|████      | 40/100 [00:00<00:00, 193.83 Computational Sequence Entries/s] 50%|█████     | 50/100 [00:00<00:00, 147.26 Computational Sequence Entries/s] 72%|███████▏  | 72/100 [00:00<00:00, 157.29 Computational Sequence Entries/s] 85%|████████▌ | 85/100 [00:00<00:00, 129.30 Computational Sequence Entries/s]                                                                                0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s] 39%|███▉      | 38/98 [00:00<00:00, 123.09 Computational Sequence Entries/s] 78%|███████▊  | 76/98 [00:00<00:00, 149.17 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 33%|███▎      | 33/99 [00:00<00:00, 310.08 Computational Sequence Entries/s] 57%|█████▋    | 56/99 [00:00<00:00, 271.73 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s] 21%|██        | 21/99 [00:00<00:00, 185.58 Computational Sequence Entries/s] 29%|██▉       | 29/99 [00:00<00:00, 114.87 Computational Sequence Entries/s] 49%|████▉     | 49/99 [00:00<00:00, 129.04 Computational Sequence Entries/s] 76%|███████▌  | 75/99 [00:00<00:00, 118.41 Computational Sequence Entries/s] 86%|████████▌ | 85/99 [00:00<00:00, 107.50 Computational Sequence Entries/s] 96%|█████████▌| 95/99 [00:00<00:00, 103.99 Computational Sequence Entries/s]                                                                               0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 25%|██▌       | 25/100 [00:00<00:00, 218.39 Computational Sequence Entries/s] 43%|████▎     | 43/100 [00:00<00:00, 125.50 Computational Sequence Entries/s]                                                                                0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s] 13%|█▎        | 13/100 [00:00<00:01, 50.49 Computational Sequence Entries/s] 32%|███▏      | 32/100 [00:00<00:01, 55.50 Computational Sequence Entries/s] 52%|█████▏    | 52/100 [00:00<00:00, 69.54 Computational Sequence Entries/s] 84%|████████▍ | 84/100 [00:00<00:00, 78.34 Computational Sequence Entries/s] 98%|█████████▊| 98/100 [00:01<00:00, 87.19 Computational Sequence Entries/s]                                                                               0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/102 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/102 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/105 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/101 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/96 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/101 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/97 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/150 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/103 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/96 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/98 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/99 [00:00<?, ? Computational Sequence Entries/s]                                                                     0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                      0%|          | 0/100 [00:00<?, ? Computational Sequence Entries/s]                                                                    [INFO] finished setting up training
+[INFO] starts experiment: /results/tianjunm/monaural-source-separation/experiments/snapshots/cSA-LSTM/t0-2s-30c/paper
+[INFO] epoch   0, train loss: 808885446.24, val loss: 853111274.00
+[INFO] epoch   1, train loss: 721014609.28, val loss: 848368646.00
+[INFO] epoch   2, train loss: 717722537.92, val loss: 843616080.00
+[INFO] epoch   3, train loss: 718431748.60, val loss: 846426410.00
+[INFO] epoch   4, train loss: 714515817.20, val loss: 835339172.00
+[INFO] epoch   5, train loss: 710480965.83, val loss: 836406014.00
+[INFO] epoch   6, train loss: 708371063.21, val loss: 838149206.00
+[INFO] epoch   7, train loss: 706595112.18, val loss: 840161682.00
+[INFO] epoch   8, train loss: 707014724.09, val loss: 833969936.00
+[INFO] epoch   9, train loss: 707319376.66, val loss: 834816042.00
+[INFO] epoch  10, train loss: 705292880.87, val loss: 834377642.00
+[INFO] epoch  11, train loss: 706456922.99, val loss: 834592806.00
+[INFO] epoch  12, train loss: 706206113.64, val loss: 836569137.00
+[INFO] epoch  13, train loss: 704450430.36, val loss: 832533322.00
+[INFO] epoch  14, train loss: 707159153.79, val loss: 834250100.00
+[INFO] epoch  15, train loss: 707071298.56, val loss: 837342638.00
+[INFO] epoch  16, train loss: 704716446.16, val loss: 837750976.00
+[INFO] epoch  17, train loss: 707372362.22, val loss: 837432614.00
+[INFO] epoch  18, train loss: 707436911.34, val loss: 834112373.00
+[INFO] epoch  19, train loss: 707191919.95, val loss: 840170662.00
+[INFO] epoch  20, train loss: 708461712.36, val loss: 842084776.00
+[INFO] epoch  21, train loss: 707013504.72, val loss: 834343862.00
+[INFO] epoch  22, train loss: 706354535.26, val loss: 843882958.00
+[INFO] epoch  23, train loss: 706258221.09, val loss: 838803666.00
+[INFO] epoch  24, train loss: 704983787.35, val loss: 835280560.00
+[INFO] epoch  25, train loss: 703667862.29, val loss: 836978666.00
+[INFO] epoch  26, train loss: 705754478.82, val loss: 832190098.00
+[INFO] epoch  27, train loss: 707361541.62, val loss: 834361590.00
+[INFO] epoch  28, train loss: 707320468.14, val loss: 833420326.00
+[INFO] epoch  29, train loss: 707722062.82, val loss: 834827864.00
+[INFO] epoch  30, train loss: 705899858.10, val loss: 832164344.00
+[INFO] epoch  31, train loss: 707214313.51, val loss: 831651609.00
+[INFO] epoch  32, train loss: 706583449.76, val loss: 836912088.00
+[INFO] epoch  33, train loss: 706410507.45, val loss: 833603532.00
+[INFO] epoch  34, train loss: 704788463.64, val loss: 833075408.00
+[INFO] epoch  35, train loss: 705652908.47, val loss: 835150884.00
+[INFO] epoch  36, train loss: 705002108.12, val loss: 832205846.00
+[INFO] epoch  37, train loss: 705521009.58, val loss: 836445512.00
+[INFO] epoch  38, train loss: 707896937.41, val loss: 835856434.00
+[INFO] epoch  39, train loss: 706115215.85, val loss: 831799084.00
+[INFO] epoch  40, train loss: 706160814.21, val loss: 834597960.00
+[INFO] epoch  41, train loss: 704879847.16, val loss: 835236180.00
+[INFO] epoch  42, train loss: 705306072.13, val loss: 842774178.00
+[INFO] epoch  43, train loss: 704253267.94, val loss: 840118814.00
+[INFO] epoch  44, train loss: 704749934.52, val loss: 834961284.00
+[INFO] epoch  45, train loss: 705650482.50, val loss: 832099065.00
+[INFO] epoch  46, train loss: 707659456.20, val loss: 831958461.00
+[INFO] epoch  47, train loss: 707371697.69, val loss: 835344604.00
+[INFO] epoch  48, train loss: 705009494.08, val loss: 830622826.00
+[INFO] epoch  49, train loss: 703491099.71, val loss: 831502010.00
+[INFO] epoch  50, train loss: 704836593.99, val loss: 835048695.00
+[INFO] epoch  51, train loss: 706097041.07, val loss: 838559063.00
+[INFO] epoch  52, train loss: 704546865.48, val loss: 832396888.00
+[INFO] epoch  53, train loss: 703563991.92, val loss: 832178378.00
+[INFO] epoch  54, train loss: 704287661.60, val loss: 837924456.00
+[INFO] epoch  55, train loss: 704863548.12, val loss: 833190123.00
+[INFO] epoch  56, train loss: 706427210.22, val loss: 830976808.00
+[INFO] epoch  57, train loss: 700818441.51, val loss: 831764655.00
+[INFO] epoch  58, train loss: 704064921.05, val loss: 828719007.00
+[INFO] epoch  59, train loss: 704022711.82, val loss: 833219869.00
+[INFO] epoch  60, train loss: 700120853.57, val loss: 831876228.00
+[INFO] epoch  61, train loss: 700410397.24, val loss: 835513275.00
+[INFO] epoch  62, train loss: 704042871.72, val loss: 835144647.00
+[INFO] epoch  63, train loss: 704692807.97, val loss: 829256211.00
+[INFO] epoch  64, train loss: 702094043.09, val loss: 832911520.00
+[INFO] epoch  65, train loss: 702817598.16, val loss: 845939080.00
+[INFO] epoch  66, train loss: 703202858.33, val loss: 834205674.00
+[INFO] epoch  67, train loss: 706577311.08, val loss: 836879635.00
+[INFO] epoch  68, train loss: 701254890.53, val loss: 837551794.00
+[INFO] epoch  69, train loss: 700058932.86, val loss: 840155349.00
+[INFO] epoch  70, train loss: 705300463.74, val loss: 837979866.00
+[INFO] epoch  71, train loss: 700479316.04, val loss: 834296558.00
+[INFO] epoch  72, train loss: 699690769.89, val loss: 832691887.00
+[INFO] epoch  73, train loss: 700723091.73, val loss: 842318525.00
+[INFO] epoch  74, train loss: 703157385.61, val loss: 851453023.00
+[INFO] epoch  75, train loss: 698149984.41, val loss: 839337092.00
+[INFO] epoch  76, train loss: 703400011.25, val loss: 833066780.00
+[INFO] epoch  77, train loss: 702697722.38, val loss: 847036118.00
+[INFO] epoch  78, train loss: 702593213.75, val loss: 841539102.00
+[INFO] epoch  79, train loss: 700164286.77, val loss: 837650628.00
+[INFO] epoch  80, train loss: 706447312.46, val loss: 846523945.00
+[INFO] epoch  81, train loss: 705414348.58, val loss: 838258276.00
+[INFO] epoch  82, train loss: 702947566.62, val loss: 841603678.00
+[INFO] epoch  83, train loss: 703506365.24, val loss: 842261914.00
+[INFO] epoch  84, train loss: 701016184.03, val loss: 844158727.00
+[INFO] epoch  85, train loss: 700183547.19, val loss: 839636993.00
+[INFO] epoch  86, train loss: 695019340.17, val loss: 836705963.00
+[INFO] epoch  87, train loss: 695246744.03, val loss: 830526444.00
+[INFO] epoch  88, train loss: 702096484.70, val loss: 831838840.00
+[INFO] epoch  89, train loss: 698829963.76, val loss: 838471498.00
+[INFO] epoch  90, train loss: 702096189.65, val loss: 838711141.00
+[INFO] epoch  91, train loss: 696711777.74, val loss: 838025621.00
+[INFO] epoch  92, train loss: 693975824.97, val loss: 830608383.00
+[INFO] epoch  93, train loss: 694345505.74, val loss: 837589016.00
+[INFO] epoch  94, train loss: 696944784.46, val loss: 850616648.00
+[INFO] epoch  95, train loss: 695299150.01, val loss: 839614031.00
+[INFO] epoch  96, train loss: 696188338.81, val loss: 836104272.00
+[INFO] epoch  97, train loss: 697438035.42, val loss: 842465638.00
+[INFO] epoch  98, train loss: 693188057.97, val loss: 841508204.00
+[INFO] epoch  99, train loss: 695712302.01, val loss: 834537162.00
+{'name': 'wild-mix', 'transform': 'stft', 'config': {'input_dimensions': 'B2NM', 'output_dimensions': 'BC2NM', 'mix_method': 0, 'num_sources': 2, 'num_classes': 30, 'mixture_duration': 4, 'sample_rate': 16000}}
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/car.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_car> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_car> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_car> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_car> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/firetruck_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_firetruck_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_firetruck_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_firetruck_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_firetruck_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/civil_defense_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_civil_defense_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_civil_defense_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_civil_defense_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_civil_defense_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/banjo.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_banjo> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_banjo> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_banjo> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_banjo> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/church_bell.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_church_bell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_church_bell> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_church_bell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_church_bell> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/flute.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_flute> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_flute> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_flute> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_flute> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/police_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_police_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_police_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_police_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_police_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/electric_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_electric_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_electric_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_electric_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_electric_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/baby_laughter.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_baby_laughter> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_baby_laughter> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_baby_laughter> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_baby_laughter> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/piano.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_piano> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_piano> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_piano> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_piano> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/duck.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_duck> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_duck> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_duck> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_duck> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/male_speech.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_male_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_speech> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_male_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_speech> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/female_singing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_female_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_female_singing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_female_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_female_singing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/chainsaw.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_chainsaw> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_chainsaw> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_chainsaw> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_chainsaw> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/keys_jangling.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_keys_jangling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_keys_jangling> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_keys_jangling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_keys_jangling> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/male_singing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_male_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_singing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_male_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_singing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/acoustic_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_acoustic_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_acoustic_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_acoustic_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_acoustic_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bark.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bark> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bark> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bark> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bark> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/snare_drum.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_snare_drum> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snare_drum> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_snare_drum> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snare_drum> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bass_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bass_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bass_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bass_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bass_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/tambourine.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_tambourine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_tambourine> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_tambourine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_tambourine> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/violin.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_violin> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_violin> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_violin> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_violin> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/fireworks.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_fireworks> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fireworks> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_fireworks> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fireworks> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/motorboat.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_motorboat> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_motorboat> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_motorboat> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_motorboat> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/waterfall.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_waterfall> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_waterfall> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_waterfall> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_waterfall> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/saxophone.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_saxophone> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_saxophone> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_saxophone> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_saxophone> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bird.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bird> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bird> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bird> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bird> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/ukulele.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_ukulele> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_ukulele> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_ukulele> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_ukulele> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/engine_idling.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_engine_idling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine_idling> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_engine_idling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine_idling> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/frying.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_frying> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_frying> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_frying> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_frying> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/fixedwing_aircraft_airplane.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_fixedwing_aircraft_airplane> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fixedwing_aircraft_airplane> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_fixedwing_aircraft_airplane> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fixedwing_aircraft_airplane> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/engine.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_engine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_engine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/typing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_typing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_typing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_typing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_typing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/telephone_bell_ring.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_telephone_bell_ring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_telephone_bell_ring> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_telephone_bell_ring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_telephone_bell_ring> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/rain.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_rain> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_rain> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_rain> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_rain> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/applause.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_applause> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_applause> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_applause> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_applause> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/trumpet.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_trumpet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_trumpet> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_trumpet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_trumpet> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/writing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_writing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_writing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_writing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_writing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/knock.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_knock> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_knock> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_knock> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_knock> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/faucet.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_faucet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_faucet> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_faucet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_faucet> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/vacuum_cleaner.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_vacuum_cleaner> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_vacuum_cleaner> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_vacuum_cleaner> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_vacuum_cleaner> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/cowbell.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_cowbell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_cowbell> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_cowbell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_cowbell> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/shaver.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_shaver> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_shaver> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_shaver> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_shaver> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/water.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_water> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_water> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_water> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_water> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/raindrop.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_raindrop> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_raindrop> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_raindrop> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_raindrop> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/wind.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_wind> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_wind> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_wind> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_wind> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/snoring.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_snoring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snoring> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_snoring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snoring> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/child_speech.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_child_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_child_speech> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_child_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_child_speech> computational sequence metadata in correct format
+[92m[1m<Success>: [0mDataset initialized successfully ... 
+{'name': 'wild-mix', 'transform': 'stft', 'config': {'input_dimensions': 'B2NM', 'output_dimensions': 'BC2NM', 'mix_method': 0, 'num_sources': 2, 'num_classes': 30, 'mixture_duration': 4, 'sample_rate': 16000}}
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/car.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_car> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_car> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_car> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_car> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/firetruck_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_firetruck_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_firetruck_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_firetruck_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_firetruck_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/civil_defense_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_civil_defense_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_civil_defense_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_civil_defense_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_civil_defense_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/banjo.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_banjo> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_banjo> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_banjo> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_banjo> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/church_bell.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_church_bell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_church_bell> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_church_bell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_church_bell> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/flute.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_flute> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_flute> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_flute> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_flute> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/police_siren.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_police_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_police_siren> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_police_siren> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_police_siren> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/electric_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_electric_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_electric_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_electric_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_electric_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/baby_laughter.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_baby_laughter> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_baby_laughter> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_baby_laughter> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_baby_laughter> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/piano.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_piano> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_piano> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_piano> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_piano> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/duck.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_duck> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_duck> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_duck> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_duck> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/male_speech.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_male_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_speech> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_male_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_speech> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/female_singing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_female_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_female_singing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_female_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_female_singing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/chainsaw.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_chainsaw> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_chainsaw> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_chainsaw> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_chainsaw> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/keys_jangling.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_keys_jangling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_keys_jangling> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_keys_jangling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_keys_jangling> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/male_singing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_male_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_singing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_male_singing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_male_singing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/acoustic_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_acoustic_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_acoustic_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_acoustic_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_acoustic_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bark.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bark> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bark> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bark> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bark> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/snare_drum.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_snare_drum> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snare_drum> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_snare_drum> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snare_drum> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bass_guitar.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bass_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bass_guitar> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bass_guitar> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bass_guitar> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/tambourine.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_tambourine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_tambourine> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_tambourine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_tambourine> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/violin.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_violin> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_violin> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_violin> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_violin> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/fireworks.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_fireworks> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fireworks> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_fireworks> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fireworks> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/motorboat.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_motorboat> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_motorboat> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_motorboat> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_motorboat> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/waterfall.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_waterfall> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_waterfall> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_waterfall> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_waterfall> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/saxophone.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_saxophone> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_saxophone> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_saxophone> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_saxophone> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/bird.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_bird> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bird> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_bird> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_bird> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/ukulele.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_ukulele> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_ukulele> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_ukulele> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_ukulele> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/engine_idling.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_engine_idling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine_idling> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_engine_idling> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine_idling> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/frying.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_frying> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_frying> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_frying> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_frying> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/fixedwing_aircraft_airplane.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_fixedwing_aircraft_airplane> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fixedwing_aircraft_airplane> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_fixedwing_aircraft_airplane> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_fixedwing_aircraft_airplane> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/engine.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_engine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_engine> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_engine> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/typing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_typing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_typing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_typing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_typing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/telephone_bell_ring.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_telephone_bell_ring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_telephone_bell_ring> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_telephone_bell_ring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_telephone_bell_ring> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/rain.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_rain> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_rain> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_rain> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_rain> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/applause.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_applause> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_applause> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_applause> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_applause> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/trumpet.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_trumpet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_trumpet> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_trumpet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_trumpet> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/writing.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_writing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_writing> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_writing> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_writing> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/knock.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_knock> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_knock> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_knock> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_knock> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/faucet.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_faucet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_faucet> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_faucet> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_faucet> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/vacuum_cleaner.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_vacuum_cleaner> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_vacuum_cleaner> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_vacuum_cleaner> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_vacuum_cleaner> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/cowbell.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_cowbell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_cowbell> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_cowbell> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_cowbell> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/shaver.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_shaver> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_shaver> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_shaver> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_shaver> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/water.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_water> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_water> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_water> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_water> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/raindrop.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_raindrop> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_raindrop> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_raindrop> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_raindrop> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/wind.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_wind> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_wind> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_wind> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_wind> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/snoring.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_snoring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snoring> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_snoring> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_snoring> computational sequence metadata in correct format
+[92m[1m<Success>: [0mComputational sequence read from file /results/tianjunm/datasets/audioset_verified/csd_format/cut/16000/child_speech.csd ...
+[94m[1m<Status>: [0mChecking the integrity of the data in <cut_16000_child_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_child_speech> computational sequence data in correct format.
+[94m[1m<Status>: [0mChecking the integrity of the metadata in <cut_16000_child_speech> computational sequence ...
+[92m[1m<Success>: [0m<cut_16000_child_speech> computational sequence metadata in correct format
+[92m[1m<Success>: [0mDataset initialized successfully ... 

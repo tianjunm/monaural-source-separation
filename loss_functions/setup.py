@@ -5,18 +5,14 @@ import json
 from . import loss_implementation
 
 
-def prepare_loss_fn(config):
+def prepare_loss_fn(model_spec):
 
-    model_name = config['model']['name']
+    loss_function = model_spec['loss_function']
 
-    if (model_name == "cSA-LSTM" or
-       model_name == "BLSTM"):
+    if loss_function == 'CSALoss':
         loss_fn = loss_implementation.CSALoss()
 
-    # elif model_nme ==implementation
-    #     loss_fn = NoOp()
+    elif loss_function == 'Difference':
+        loss_fn = loss_implementation.Difference()
 
     return loss_fn
-
-
-# config_path = "/work/tianjunm/monaural-source-separation/experiments/hyperparameter/csa_lstm/000.json"

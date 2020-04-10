@@ -1,0 +1,29 @@
+{
+    "id": "baseline",
+    "model": 
+    {
+        "name": "L2L",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 32,
+            "num_layers": 1,
+            "hidden_size": 256,
+            "fc_dim": 256,
+            "chan": 6
+        }
+    }, 
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "loss_function": "CSALoss"
+}

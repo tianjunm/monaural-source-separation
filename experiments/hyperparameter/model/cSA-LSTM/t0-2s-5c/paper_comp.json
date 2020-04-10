@@ -1,0 +1,45 @@
+{
+    "id": "paper",
+    "model": 
+    {
+        "name": "cSA-LSTM",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 256,
+            "embed_dim": 256,
+            "output_dim": 512,
+            "num_layers": 3,
+            "hidden_size": 512
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 1e-3,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "dataset":
+    {
+        "name": "wild-mix",
+        "transform": "stft",
+        "config":
+        {
+            "input_dimensions": "B2NM",
+            "output_dimensions": "BC2NM",
+            "mix_method": 0,
+            "num_sources": 2,
+            "num_classes": 5,
+            "mixture_duration": 4,
+            "sample_rate": 16000
+        }
+    },
+
+    "loss_function": "CSALoss"
+}

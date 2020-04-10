@@ -33,35 +33,37 @@ logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 class Experiment():
     def __init__(self,
                  model,
-                 model_name,
                  train_data,
                  val_data,
                  loss_fn,
                  optim,
                  max_epochs,
                  save_path_prefix,
-                 config_id,
                  load_path=None):
 
-        self.identifier = time.strftime("%y%m%d", time.gmtime())
+        self.identifier = time.strftime("%y%m%d%H%M%S", time.gmtime())
         self.device = utils.hardware.get_device()
 
         self._model = model
-        self._model_name = model_name
         self._train_data = train_data
         self._val_data = val_data
         self._loss_fn = loss_fn
         self._optim = optim
         self._max_epochs = max_epochs
         self._save_path_prefix = save_path_prefix
-        self._config_id = config_id
         self._load_path = load_path
 
-    def run(self, record_path, checkpoint_freq=50, early_stopping_limit=None):
+    def run(self, record_path, record_template, checkpoint_freq=50,
+            early_stopping_limit=None):
         logging.info(f'starts experiment: {self._save_path_prefix}')
-        start_epoch, min_loss = self._load_snapshot()
+        start_epoch, min_val_loss = self._load_snapshot()
 
         counter = 0
+        min_train_loss = None
+
+        train_losses = []
+        val_losses = []
+
         for epoch in range(start_epoch, self._max_epochs):
             if (early_stopping_limit is not None and
                counter >= early_stopping_limit):
@@ -70,20 +72,29 @@ class Experiment():
             train_loss = self._train_step()
             val_loss = self._val_step()
 
-            if min_loss is None or val_loss < min_loss:
+            train_losses.append(train_loss)
+            val_losses.append(val_loss)
+
+            if min_train_loss is None or train_loss < min_train_loss:
+                min_train_loss = train_loss
+
+            if min_val_loss is None or val_loss < min_val_loss:
                 counter = 0
-                min_loss = val_loss
-                self._save_snapshot(epoch, val_loss, 'best')
+                min_val_loss = val_loss
+                self._save_snapshot(epoch, val_loss, 'best',
+                                    train_losses, val_losses)
             else:
                 counter += 1
 
             if (epoch + 1) % checkpoint_freq == 0:
-                self._save_snapshot(epoch, val_loss, 'checkpoint')
+                self._save_snapshot(epoch, val_loss, 'checkpoint',
+                                    train_losses, val_losses)
 
             logging.info('epoch %3d, train loss: %.2f, val loss: %.2f',
                          epoch, train_loss, val_loss)
 
-        self._save_record(record_path, epoch, min_loss)
+        self._save_record(record_path, record_template, min_train_loss,
+                          min_val_loss)
 
     def _train_step(self):
         self._model.train()
@@ -103,6 +114,7 @@ class Experiment():
             running_loss += loss.item()
             iters += 1
 
+        # print(i)
         return running_loss / iters
 
     def _val_step(self):
@@ -122,16 +134,19 @@ class Experiment():
 
         return running_loss / iters
 
-    def _save_snapshot(self, epoch, loss, category):
+    def _save_snapshot(self, epoch, loss, category, train_losses, val_losses):
         snapshot = {
             'epoch': epoch,
             'model_state_dict': self._model.state_dict(),
             'optim_state_dict': self._optim.state_dict(),
-            'loss': loss
+            'loss': loss,
+            'train_losses': train_losses,
+            'val_losses': val_losses
         }
 
-        save_path = os.path.join(self._save_path_prefix, self.identifier,
-                                 f"{category}")
+        save_path = os.path.join(self._save_path_prefix,
+                                 self.identifier,
+                                 f"{category}.tar")
 
         utils.io.make_dir(save_path)
         torch.save(snapshot, save_path)
@@ -149,31 +164,101 @@ class Experiment():
 
         return start_epoch, min_loss
 
-    def _save_record(self, record_path, epoch, loss):
+    def _save_record(self, record_path, record_template, train_loss, val_loss):
         snapshot_path = os.path.join(self._save_path_prefix, self.identifier,
                                      'best.tar')
 
-        record = {
-            'model': self._model_name,
-            'config_id': self._config_id,
-            'experiment_id': self.identifier,
-            'loss': loss,
-            'snapshot_path': snapshot_path
-        }
+        record_template['experiment_id'] = self.identifier
+        record_template['train_loss'] = train_loss
+        record_template['val_loss'] = val_loss
+        record_template['snapshot_path'] = snapshot_path
 
         utils.io.make_dir(record_path)
         with open(record_path, 'a+') as f:
-            csv_writer = csv.DictWriter(f, fieldnames=record.keys())
-            csv_writer.writerow(record)
+            csv_writer = csv.DictWriter(f, fieldnames=record_template.keys())
+            csv_writer.writerow(record_template)
 
     # def _sync_tensorboard(self):
     #     legend = ""
 
 
+def prepare_optimizer(model, model_spec):
+    optim_name = model_spec['optimizer']['name']
+    optim_config = model_spec['optimizer']['config']
+
+    if optim_name == 'Adam':
+        optim = torch.optim.Adam(model.parameters(),
+                                 lr=optim_config['lr'],
+                                 betas=optim_config['betas'],
+                                 eps=optim_config['epsilon'])
+
+    elif optim_name == 'RMSprop':
+        optim = torch.optim.RMSprop(model.parameters(),
+                                    lr=optim_config['lr'])
+
+    return optim
+
+
+def prepare_save_path_prefix(dataset_spec, model_spec):
+    did = dataset_spec['id']
+    dataset_name = dataset_spec['name']
+    if dataset_name == 'wild-mix':
+        mix_method = dataset_spec['config']['mix_method']
+        nsrc = dataset_spec['config']['num_sources']
+        ncls = dataset_spec['config']['num_classes']
+        dataset_config = f'{dataset_name}-t{mix_method}-{nsrc}s-{ncls}c'
+
+    mid = model_spec['id']
+    model_name = model_spec['model']['name']
+
+    filename = f'{model_name}-{mid}-{dataset_config}-{did}'
+
+    save_path_prefix = os.path.join(PATH_TO_RESULTS, 'snapshots', filename)
+
+    return save_path_prefix
+
+
+def prepare_record_template(dataset_spec, model_spec):
+    did = dataset_spec['id']
+    dataset_name = dataset_spec['name']
+    if dataset_name == 'wild-mix':
+        mix_method = dataset_spec['config']['mix_method']
+        nsrc = dataset_spec['config']['num_sources']
+        ncls = dataset_spec['config']['num_classes']
+        dataset_config = f'{dataset_name}-t{mix_method}-{nsrc}s-{ncls}c'
+
+    mid = model_spec['id']
+    model_name = model_spec['model']['name']
+
+    template = {
+        'dataset_config': dataset_config,
+        'dataset_id': did,
+        'model': model_name,
+        'mid': mid,
+        'experiment_id': None,
+        'train_loss': None,
+        'val_loss': None,
+        'snapshot_path': None
+    }
+
+    return template
+
+
+def prepare_record_path(dataset_spec):
+    dataset_name = dataset_spec['name']
+    filename = 'records.csv'
+
+    record_path = os.path.join(PATH_TO_RESULTS, 'records', dataset_name,
+                               filename)
+
+    return record_path
+
+
 def get_arguments():
     parser = argparse.ArgumentParser(description='Training')
 
-    parser.add_argument('--config_path', type=str)
+    parser.add_argument('--dataset_spec', type=str)
+    parser.add_argument('--model_spec', type=str)
     parser.add_argument('--early_stopping_limit', type=int)
     parser.add_argument('--checkpoint_freq', type=int)
     parser.add_argument('--checkpoint_load_path', type=str)
@@ -181,77 +266,47 @@ def get_arguments():
     return parser.parse_args()
 
 
-def prepare_optimizer(model, config):
-    optim_name = config['optimizer']['name']
-    if optim_name == 'Adam':
-        optim = torch.optim.Adam(model.parameters(),
-                                 lr=config['optimizer']['config']['lr'],
-                                 betas=config['optimizer']['config']['betas'],
-                                 eps=config['optimizer']['config']['epsilon'])
-
-    return optim
-
-
-def prepare_save_path(config):
-    save_path_prefix = os.path.join(PATH_TO_RESULTS,
-                                    'snapshots',
-                                    config['model']['name'],
-                                    config['id'])
-
-    return save_path_prefix
-
-
-def prepare_record_path(config):
-    dataset_name = config['dataset']['name']
-    mix_method = config['dataset']['config']['mix_method']
-    nsrc = config['dataset']['config']['num_sources']
-    ncls = config['dataset']['config']['num_classes']
-    filename = f't{mix_method}-{nsrc}s-{ncls}c.csv'
-
-    record_path = os.path.join(PATH_TO_RESULTS,
-                               'records',
-                               dataset_name,
-                               filename)
-
-    return record_path
-
-
 def main():
     args = get_arguments()
 
-    with open(args.config_path) as f:
-        config = json.load(f)
+    with open(args.dataset_spec) as df, open(args.model_spec) as mf:
+        dataset_spec = json.load(df)
+        model_spec = json.load(mf)
 
-    train_dataloader = datasets.setup.prepare_dataloader(config, 'train')
+    train_dataloader = datasets.setup.prepare_dataloader(
+        dataset_spec, model_spec, 'train')
 
-    val_dataloader = datasets.setup.prepare_dataloader(config, 'val')
+    val_dataloader = datasets.setup.prepare_dataloader(
+        dataset_spec, model_spec, 'val')
 
     input_shape = train_dataloader.dataset.input_shape
-    model = models.setup.prepare_model(config, input_shape)
+    model = models.setup.prepare_model(dataset_spec, model_spec, input_shape)
     model = model.to(utils.hardware.get_device())
 
-    loss_fn = loss_functions.setup.prepare_loss_fn(config)
+    loss_fn = loss_functions.setup.prepare_loss_fn(model_spec)
 
-    optimizer = prepare_optimizer(model, config)
+    optimizer = prepare_optimizer(model, model_spec)
+
+    max_epochs = model_spec['model']['config']['max_epoch']
 
     # tensorboard_path = utils.experiment.get_path('tensorboard', args)
-    save_path_prefix = prepare_save_path(config)
-    record_path = prepare_record_path(config)
+    save_path_prefix = prepare_save_path_prefix(dataset_spec, model_spec)
+    record_path = prepare_record_path(dataset_spec)
 
     logging.info('finished setting up training')
 
     experiment = Experiment(model=model,
-                            model_name=config['model']['name'],
                             train_data=train_dataloader,
                             val_data=val_dataloader,
                             loss_fn=loss_fn,
                             optim=optimizer,
-                            max_epochs=config['model']['config']['max_epoch'],
+                            max_epochs=max_epochs,
                             save_path_prefix=save_path_prefix,
-                            config_id=config['id'],
                             load_path=args.checkpoint_load_path)
 
-    experiment.run(record_path, args.checkpoint_freq,
+    record_template = prepare_record_template(dataset_spec, model_spec)
+
+    experiment.run(record_path, record_template, args.checkpoint_freq,
                    args.early_stopping_limit)
 
 
