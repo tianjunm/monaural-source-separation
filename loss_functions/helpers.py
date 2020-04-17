@@ -28,15 +28,26 @@ def perm_invariant(func):
 
     """
 
-    def wrapper_perm_invariant(*args):
+    def wrapper_perm_invariant(*args, **kwargs):
         model_input = args[1]
         model_output = args[2]
         ground_truths = args[3]
 
-        b = ground_truths.size(0)
-        c = ground_truths.size(1)
+        s = args[0].s
+        perms = get_all_permutations(s)
 
-        perms = get_all_permutations(c)
+        if (args[0].input_dimensions == 'BN(2M)' and
+           args[0].output_dimensions == 'BN(S2M)'):
+            b = model_input.size(0)
+            n = model_input.size(1)
+
+            model_input = model_input.view(b, n, 2, -1).permute(0, 2, 1, 3)
+            model_output = model_output.view(b, n, s, 2, -1).permute(
+                0, 2, 3, 1, 4)
+            ground_truths = ground_truths.view(b, n, s, 2, -1).permute(
+                0, 2, 3, 1, 4)
+        else:
+            b = model_input.size(0)
 
         losses = torch.zeros(b, len(perms))
         for i, perm in enumerate(perms):
@@ -46,9 +57,21 @@ def perm_invariant(func):
 
         return losses.min(axis=-1).values.mean()
 
+    wrapper_perm_invariant.unwrapped = func
+
     return wrapper_perm_invariant
 
 
-# @perm_invariant
-# def test(model_input, model_output, ground_truths):
-#     print(model_input)
+# def normalize_loss(func):
+#     def wrapper_normalize_loss(*args):
+#         model_input = args[1]
+#         model_output = args[2]
+#         ground_truths = args[3]
+
+#         b = ground_truths.size(0)
+#         c = ground_truths.size(1)
+
+
+#         return losses.min(axis=-1).values.mean()
+
+#     return wrapper_perm_invariant

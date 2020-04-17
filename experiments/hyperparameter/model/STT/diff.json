@@ -1,0 +1,34 @@
+{
+    "id": "diff",
+    "model": 
+    {
+        "name": "STT",
+        "config":
+        {
+            "max_epoch": 400,
+            "batch_size": 16,
+            "num_heads": 4,
+            "num_layers": 4,
+            "dmodel": 256,
+            "hidden_size": 256,
+            "dropout": 0.1,
+            "c_out": 64,
+            "d_out": 32,
+            "ks2": 32,
+            "res_size": 128
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 5e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "loss_function": "Difference"
+}

@@ -116,15 +116,23 @@ class WildMix(Dataset):
 
     @staticmethod
     def _load_augmentation(dataset_info, dataset_split):
+
+        hashes = pd.read_csv(os.path.join(DATA_ROOT, 'wild-mix',
+                                          'all_dataset_hashes.csv'))
+
         mix_method = dataset_info['mix_method']
         nsrc = dataset_info['num_sources']
         ncls = dataset_info['num_classes']
 
-        filename = f't{mix_method}-{nsrc}s-{ncls}c/{dataset_split}.csv'
+        md5 = hashes[(hashes.mixing_type == mix_method) &
+                     (hashes.num_sources == nsrc) &
+                     (hashes.num_classes == ncls)].hash_val.iloc[0]
+
+        filename = f't{mix_method}-{nsrc}s-{ncls}c/{md5}/{dataset_split}.csv'
         path = os.path.join(DATA_ROOT, 'wild-mix', filename)
+        print(md5)
         augmentation = pd.read_csv(path)
 
-        print(augmentation.category.unique())
         return augmentation
 
     @staticmethod

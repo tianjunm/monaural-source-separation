@@ -2,10 +2,9 @@
     "id": "4s",
     "name": "wild-mix",
     "transform": "stft",
-    "config":
-    {
+    "config": {
         "input_dimensions": "B2NM",
-        "output_dimensions": "BC2NM",
+        "output_dimensions": "BS2NM",
         "mix_method": 2,
         "num_sources": 2,
         "num_classes": 5,

@@ -39,6 +39,7 @@ class Experiment():
                  optim,
                  max_epochs,
                  save_path_prefix,
+                 seq2seq=False,
                  load_path=None):
 
         self.identifier = time.strftime("%y%m%d%H%M%S", time.gmtime())
@@ -51,10 +52,11 @@ class Experiment():
         self._optim = optim
         self._max_epochs = max_epochs
         self._save_path_prefix = save_path_prefix
+        self._seq2seq = seq2seq
         self._load_path = load_path
 
     def run(self, record_path, record_template, checkpoint_freq=50,
-            early_stopping_limit=None):
+            early_stopping_limit=None, no_pit=False, no_tgt=False):
         logging.info(f'starts experiment: {self._save_path_prefix}')
         start_epoch, min_val_loss = self._load_snapshot()
 
@@ -69,8 +71,8 @@ class Experiment():
                counter >= early_stopping_limit):
                 break
 
-            train_loss = self._train_step()
-            val_loss = self._val_step()
+            train_loss = self._train_step(no_pit, no_tgt)
+            val_loss = self._val_step(no_pit, no_tgt)
 
             train_losses.append(train_loss)
             val_losses.append(val_loss)
@@ -87,16 +89,21 @@ class Experiment():
                 counter += 1
 
             if (epoch + 1) % checkpoint_freq == 0:
-                self._save_snapshot(epoch, val_loss, 'checkpoint',
+                self._save_snapshot(epoch, min_val_loss, 'checkpoint',
                                     train_losses, val_losses)
 
-            logging.info('epoch %3d, train loss: %.2f, val loss: %.2f',
-                         epoch, train_loss, val_loss)
+            if early_stopping_limit is not None:
+                logging.info('epoch %3d, train loss: %.2f, val loss: %.2f | '
+                             '%2d/%2d', epoch, train_loss, val_loss,
+                             counter, early_stopping_limit)
+            else:
+                logging.info('epoch %3d, train loss: %.2f, val loss: %.2f',
+                             epoch, train_loss, val_loss)
 
         self._save_record(record_path, record_template, min_train_loss,
                           min_val_loss)
 
-    def _train_step(self):
+    def _train_step(self, no_pit, no_tgt):
         self._model.train()
         running_loss = 0.0
         iters = 0
@@ -106,8 +113,16 @@ class Experiment():
 
             model_input = batch['model_input'].to(self.device)
             ground_truths = batch['ground_truths'].to(self.device)
-            model_output = self._model(model_input)
-            loss = self._loss_fn(model_input, model_output, ground_truths)
+
+            if self._seq2seq:
+                model_output = self._model(model_input, ground_truths,
+                                           no_tgt=no_tgt)
+                loss = self._loss_fn(model_input, model_output,
+                                     ground_truths[:, 1:])
+            else:
+                model_output = self._model(model_input)
+                loss = self._loss_fn(model_input, model_output, ground_truths)
+
             loss.backward()
             self._optim.step()
 
@@ -117,7 +132,7 @@ class Experiment():
         # print(i)
         return running_loss / iters
 
-    def _val_step(self):
+    def _val_step(self, no_pit, no_tgt):
         running_loss = 0.0
         iters = 0
 
@@ -127,8 +142,17 @@ class Experiment():
             for batch in self._val_data:
                 model_input = batch['model_input'].to(self.device)
                 ground_truths = batch['ground_truths'].to(self.device)
-                model_output = self._model(model_input)
-                loss = self._loss_fn(model_input, model_output, ground_truths)
+
+                if self._seq2seq:
+                    model_output = self._model(model_input, ground_truths,
+                                               no_tgt=no_tgt)
+                    loss = self._loss_fn(model_input, model_output,
+                                         ground_truths[:, 1:])
+                else:
+                    model_output = self._model(model_input)
+                    loss = self._loss_fn(model_input, model_output,
+                                         ground_truths)
+
                 running_loss += loss.item()
                 iters += 1
 
@@ -262,6 +286,7 @@ def get_arguments():
     parser.add_argument('--early_stopping_limit', type=int)
     parser.add_argument('--checkpoint_freq', type=int)
     parser.add_argument('--checkpoint_load_path', type=str)
+    parser.add_argument('--no_pit', type=bool, nargs='?', const=True, default=False)
 
     return parser.parse_args()
 
@@ -282,8 +307,9 @@ def main():
     input_shape = train_dataloader.dataset.input_shape
     model = models.setup.prepare_model(dataset_spec, model_spec, input_shape)
     model = model.to(utils.hardware.get_device())
+    # print(model.device)
 
-    loss_fn = loss_functions.setup.prepare_loss_fn(model_spec)
+    loss_fn = loss_functions.setup.prepare_loss_fn(dataset_spec, model_spec)
 
     optimizer = prepare_optimizer(model, model_spec)
 
@@ -295,6 +321,8 @@ def main():
 
     logging.info('finished setting up training')
 
+    seq2seq = (model_spec['model']['name'] in ['STT'])
+
     experiment = Experiment(model=model,
                             train_data=train_dataloader,
                             val_data=val_dataloader,
@@ -302,12 +330,17 @@ def main():
                             optim=optimizer,
                             max_epochs=max_epochs,
                             save_path_prefix=save_path_prefix,
+                            seq2seq=seq2seq,
                             load_path=args.checkpoint_load_path)
 
     record_template = prepare_record_template(dataset_spec, model_spec)
 
+    # TODO just a test
+    no_tgt = (model_spec['id'] == 'sample2')
+
+    print(args.no_pit)
     experiment.run(record_path, record_template, args.checkpoint_freq,
-                   args.early_stopping_limit)
+                   args.early_stopping_limit, args.no_pit, no_tgt)
 
 
 if __name__ == '__main__':

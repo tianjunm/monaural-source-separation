@@ -23,5 +23,5 @@
         }
     },
 
-    "loss_function": "CSALoss"
+    "loss_function": "Difference"
 }

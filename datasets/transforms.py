@@ -38,16 +38,36 @@ class STFT():
             spect = spect.permute(2, 1, 0)
 
         elif input_dimensions == 'BN(2M)':
-            seq_len = spect.size(1)
-            spect = spect.permute(1, 0, 2).view(seq_len, -1)
+            n = spect.size(1)
+            spect = spect.permute(1, 2, 0).reshape(n, -1)
+            # print('o')
 
         return spect
 
     def _convert_gt(self, ground_truths, output_dimensions):
-        if output_dimensions == 'BC2NM':
+        if output_dimensions == 'BS2NM':
             spects = [self._stft(pcm).permute(2, 1, 0) for pcm in
                       ground_truths]
             spects = torch.stack(spects, dim=0)
+
+        elif output_dimensions == 'BN(S2M)':
+            # n = self._stft(ground_truths[0]).size(1)
+            # spects = [self._stft(pcm).permute(1, 2, 0) for pcm in
+            #           ground_truths]
+            # spects = torch.stack(spects, dim=1).view(n, -1)
+
+            # spects = []
+            # for pcm in ground_truths:
+            #     spect = self._stft(pcm).permute(1, 2, 0)
+            #     spects.append(spect)
+            spects = [self._stft(pcm).permute(1, 2, 0) for pcm in
+                      ground_truths]
+
+            n = spects[0].size(0)
+            spects = torch.stack(spects, dim=1).view(n, -1)
+            dummy = torch.ones(1, spects.size(1))
+
+            spects = torch.cat((dummy, spects))
 
         return spects
 

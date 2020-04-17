@@ -45,22 +45,26 @@ class L2LAudio(nn.Module):
         b = x.size(0)
         n = x.size(2)
 
-        x = x.permute(0, 1, 3, 2)
+        # x = x.permute(0, 1, 3, 2)
+        # x = torch.cat(list(x.permute(1, 0, 2, 3)), -1)
+
         # dilated convolutional network
         for conv, bn in zip(self.convs, self.bns):
             x = F.relu(bn(conv(x)))
 
-        # [b, out_chan, m, n] --> [b, n, out_chan * m]
-        x = x.permute(0, 3, 1, 2).reshape(b, n, -1)
+        # [b, out_chan, n, m] --> [b, n, out_chan * m]
+        # x = x.permute(0, 2, 1, 3).reshape(b, n, -1)
+        x = torch.cat(list(x.permute(1, 0, 2, 3)), 2)
 
         # bidirectional lstm
+        self.blstm.flatten_parameters()
         x, _ = self.blstm(x)
         x = F.relu(x)
 
         # fcs
         x = F.relu(self.fc0(x))
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = self.fc2(x)
 
         x = x.view(b, n, self.s, 2, self.m).permute(0, 2, 3, 1, 4)
 

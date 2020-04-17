@@ -1,0 +1,32 @@
+{
+    "id": "sample",
+    "model": 
+    {
+        "name": "CNNTransformer",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 32,
+            "num_heads": 4,
+            "num_layers": 4,
+            "dmodel": 512,
+            "hidden_size": 1024,
+            "fc_dim": 512,
+            "chan": 6,
+            "dropout": 0.1
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "loss_function": "Difference"
+}

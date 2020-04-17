@@ -1,0 +1,14 @@
+{
+    "id": "4s",
+    "name": "wild-mix",
+    "transform": "stft",
+    "config": {
+        "input_dimensions": "BN(2M)",
+        "output_dimensions": "BN(S2M)",
+        "mix_method": 1,
+        "num_sources": 5,
+        "num_classes": 30,
+        "mixture_duration": 4,
+        "sample_rate": 16000
+    }
+}
