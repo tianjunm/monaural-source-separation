@@ -10,3 +10,6 @@ debug.ipynb
 # results
 experiments/snapshots
 *.out
+
+mmsdk/
+results/

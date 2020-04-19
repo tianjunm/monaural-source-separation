@@ -2,6 +2,7 @@
 
 
 import torch
+import numpy as np
 
 
 class STFT():
@@ -11,7 +12,8 @@ class STFT():
         # pre-defined STFT parameters
         self._info = dataset_info
         self._window_size = 256
-        self._hop_length = 192
+        self._self._hop_length = 192
+
 
     def __call__(self, item):
         input_dimensions = self._info['config']['input_dimensions']
@@ -82,7 +84,53 @@ class STFT():
 
         """
         pcm_tensor = torch.from_numpy(pcm).float()
-        spect = torch.stft(pcm_tensor, self._window_size, self._hop_length,
+        spect = torch.stft(pcm_tensor, self._window_size, self._self._hop_length,
                            window=torch.hann_window(256))
 
         return spect
+
+class WaveunetWindow:
+    def __init__(self, dataset_info):
+        self._info = dataset_info
+        self._window_size = 256
+        self._hop_length = 192
+    
+    def __call__(self, item):
+        curr_gt_start = self._info['gt_start']
+        curr_gt_end = self._info['gt_end']
+        curr_agg_start = 0
+        agg_len = self._info['agg_len']
+        lzero_end = curr_gt_start
+        rzero_start = curr_gt_end
+        gts = []
+        aggs = []
+        clipped_aggs = []
+
+
+        MIXTURE_DURATION = len(item['model_input'])
+        while curr_gt_end < MIXTURE_DURATION: 
+            agg = np.zeros(agg_len)
+            clipped_agg = item['model_input'][curr_gt_start:curr_gt_end]
+            agg[lzero_end:rzero_start] = clipped_agg
+            aggs.append(torch.tensor(agg))
+            clipped_aggs.append(torch.DoubleTensor(clipped_agg))
+            gt_new = []
+            for gt in item['ground_truths']:
+                gt_new.append(torch.tensor(gt[curr_gt_start:curr_gt_end]))
+            gts.append(torch.stack(gt_new, dim = 0))
+            curr_gt_start += self._hop_length
+            curr_gt_end += self._hop_length
+
+
+        model_input = torch.stack(aggs, dim = 0)
+        ground_truths = torch.stack(gts, dim = 0)
+        clipped_model_input = torch.stack(clipped_aggs, dim = 0)
+
+        transformed = {
+            'model_input': model_input,
+            'ground_truths': ground_truths,
+            'clipped_model_input': clipped_model_input,
+            'component_info': item['component_info']
+        }
+
+        return transformed

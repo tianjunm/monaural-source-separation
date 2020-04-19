@@ -2,7 +2,7 @@
 
 
 import json
-from . import csa_lstm, blstm, l2l, otf, stt_aaai
+from . import csa_lstm, blstm, l2l, otf, stt_aaai, waveunet
 # from stt import stt_aaai
 
 
@@ -13,7 +13,7 @@ def get_input_size(dataset_spec, input_shape):
         return input_shape[-1] // 2
 
 
-def prepare_model(dataset_spec, model_spec, input_shape):
+def prepare_model(dataset_spec, model_spec, input_shape = None):
     dataset_config = dataset_spec['config']
 
     model_name = model_spec['model']['name']
@@ -117,5 +117,20 @@ def prepare_model(dataset_spec, model_spec, input_shape):
                                   num_sources=num_sources, dropout=dropout,
                                   c_out=c_out, d_out=d_out, ks2=ks2,
                                   res_size=res_size)
+    elif model_name=='WAVE-U-NET':
+        layer_channels = [model_config['channels']*2**i for i in range(0, model_config['levels'])]
+        in_channels = dataset_config['in_channels']
+        num_cats = dataset_config['num_sources']
+        # ALL CATS???, target_output_size, 
+        kernel_size =  model_config['kernel_size']
+        pre_depth = model_config['pre_depth']
+        post_depth = model_config['post_depth']
+        depth = model_config['depth']
+        stride = model_config['stride']
+        stride_change = model_config['stride_change']
+        target_output_size = 256
+        model = waveunet.WaveUNet(in_channels, layer_channels, in_channels, 
+                num_cats, kernel_size, target_output_size, pre_depth, 
+                post_depth, depth, stride, stride_change)
 
     return model

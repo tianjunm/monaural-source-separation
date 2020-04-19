@@ -24,7 +24,7 @@ import utils.io
 import utils.hardware
 
 
-PATH_TO_RESULTS = '/results/tianjunm/monaural-source-separation/experiments'
+PATH_TO_RESULTS = 'results/'
 
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
@@ -40,11 +40,11 @@ class Experiment():
                  max_epochs,
                  save_path_prefix,
                  seq2seq=False,
+                 waveunet=False,
                  load_path=None):
 
         self.identifier = time.strftime("%y%m%d%H%M%S", time.gmtime())
         self.device = utils.hardware.get_device()
-
         self._model = model
         self._train_data = train_data
         self._val_data = val_data
@@ -53,6 +53,7 @@ class Experiment():
         self._max_epochs = max_epochs
         self._save_path_prefix = save_path_prefix
         self._seq2seq = seq2seq
+        self._waveunet = waveunet
         self._load_path = load_path
 
     def run(self, record_path, record_template, checkpoint_freq=50,
@@ -110,15 +111,29 @@ class Experiment():
 
         for i, batch in enumerate(self._train_data):
             self._optim.zero_grad()
-
             model_input = batch['model_input'].to(self.device)
             ground_truths = batch['ground_truths'].to(self.device)
-
             if self._seq2seq:
                 model_output = self._model(model_input, ground_truths,
                                            no_tgt=no_tgt)
                 loss = self._loss_fn(model_input, model_output,
                                      ground_truths[:, 1:])
+            elif self._waveunet:
+                gt_shape = ground_truths.shape
+                ground_truths = ground_truths.reshape(gt_shape[0]*gt_shape[1], gt_shape[2],gt_shape[3])
+                agg  = batch['model_input'].to(self.device).float()
+                clipped_agg = batch['clipped_model_input'].to(self.device)
+                agg = agg.reshape(agg.shape[0]*agg.shape[1], 1, agg.shape[2])
+                clipped_agg = clipped_agg.reshape(clipped_agg.shape[0]*clipped_agg.shape[1], clipped_agg.shape[2])
+                model_output = self._model(agg)
+                last_output = clipped_agg - torch.sum(model_output, dim=1)
+                last_output = last_output.reshape(last_output.shape[0], 1, last_output.shape[1]).float()
+                model_output = torch.cat((model_output, last_output), dim=1).double()
+                ground_truths = ground_truths.to(self.device)
+                max_abs_output = torch.max(torch.abs(model_output))
+                max_abs_gt = torch.max(torch.abs(ground_truths))
+                loss = nn.MSELoss()(model_output/max_abs_output, ground_truths/max_abs_gt)
+                #self._loss_fn(clipped_agg, model_output/max_abs_output, ground_truths/max_abs_gt)
             else:
                 model_output = self._model(model_input)
                 loss = self._loss_fn(model_input, model_output, ground_truths)
@@ -148,6 +163,22 @@ class Experiment():
                                                no_tgt=no_tgt)
                     loss = self._loss_fn(model_input, model_output,
                                          ground_truths[:, 1:])
+                elif self._waveunet:
+                    ground_truths = torch.stack(batch['ground_truths'], axis = 1)
+                    gt_shape = ground_truths.shape
+                    ground_truths = ground_truths.reshape(gt_shape[0]*gt_shape[1], gt_shape[2],gt_shape[3])
+                    agg  = batch['aggregate'].to(self.device).float()
+                    clipped_agg = batch['aggregate_clipped'].to(self.device)
+                    agg = agg.reshape(agg.shape[0]*agg.shape[1], 1, agg.shape[2])
+                    clipped_agg = clipped_agg.reshape(clipped_agg.shape[0]*clipped_agg.shape[1], clipped_agg.shape[2])
+                    model_output = self.model(agg)
+                    last_output = clipped_agg - torch.sum(output, dim=1)
+                    last_output = last_output.reshape(last_output.shape[0], 1, last_output.shape[1]).float()
+                    model_output = torch.cat((model_output, last_output), dim=1).double()
+                    ground_truths = ground_truths.to(self.device)
+                    max_abs_output = torch.max(torch.abs(model_output))
+                    max_abs_gt = torch.max(torch.abs(ground_truths))
+                    loss = self._loss_fn(clipped_agg, model_output/max_abs_output, ground_truths/max_abs_gt)
                 else:
                     model_output = self._model(model_input)
                     loss = self._loss_fn(model_input, model_output,
@@ -297,6 +328,14 @@ def main():
     with open(args.dataset_spec) as df, open(args.model_spec) as mf:
         dataset_spec = json.load(df)
         model_spec = json.load(mf)
+    seq2seq = (model_spec['model']['name'] in ['STT'])
+    waveunet = (model_spec['model']['name'] in ['WAVE-U-NET'])
+
+    if waveunet:
+        model = models.setup.prepare_model(dataset_spec, model_spec)
+        dataset_spec['agg_len'] = model.shapes["input_frames"]
+        dataset_spec['gt_start'] = model.shapes["output_start_frame"]
+        dataset_spec['gt_end'] = model.shapes["output_end_frame"]
 
     train_dataloader = datasets.setup.prepare_dataloader(
         dataset_spec, model_spec, 'train')
@@ -304,15 +343,14 @@ def main():
     val_dataloader = datasets.setup.prepare_dataloader(
         dataset_spec, model_spec, 'val')
 
-    input_shape = train_dataloader.dataset.input_shape
-    model = models.setup.prepare_model(dataset_spec, model_spec, input_shape)
+    if not waveunet:
+        input_shape = train_dataloader.dataset.input_shape
+        model = models.setup.prepare_model(dataset_spec, model_spec, input_shape)
+    
     model = model.to(utils.hardware.get_device())
     # print(model.device)
-
     loss_fn = loss_functions.setup.prepare_loss_fn(dataset_spec, model_spec)
-
     optimizer = prepare_optimizer(model, model_spec)
-
     max_epochs = model_spec['model']['config']['max_epoch']
 
     # tensorboard_path = utils.experiment.get_path('tensorboard', args)
@@ -321,7 +359,6 @@ def main():
 
     logging.info('finished setting up training')
 
-    seq2seq = (model_spec['model']['name'] in ['STT'])
 
     experiment = Experiment(model=model,
                             train_data=train_dataloader,
@@ -331,7 +368,8 @@ def main():
                             max_epochs=max_epochs,
                             save_path_prefix=save_path_prefix,
                             seq2seq=seq2seq,
-                            load_path=args.checkpoint_load_path)
+                            load_path=args.checkpoint_load_path,
+                            waveunet = waveunet)
 
     record_template = prepare_record_template(dataset_spec, model_spec)
 

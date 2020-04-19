@@ -6,7 +6,6 @@ import torch
 from . import dataloaders
 from . import transforms
 
-
 def prepare_dataloader(dataset_spec, model_spec, dataset_split):
     """Return a loadable dataset.
 
@@ -26,10 +25,12 @@ def prepare_dataloader(dataset_spec, model_spec, dataset_split):
 
         elif dataset_spec['transform'] == 'pcm':
             transform = None
+        
+        elif dataset_spec['transform'] == 'wave-u-net':
+            transform = transforms.WaveunetWindow(dataset_spec)
 
         dataset = dataloaders.WildMix(dataset_spec['config'], dataset_split,
                                       transform=transform)
-
     elif dataset_spec['name'] == 'avspeech':
         pass
 
