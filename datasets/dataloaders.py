@@ -14,7 +14,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 from mmsdk import mmdatasdk
 
-DATA_ROOT = 'results'
+DATA_ROOT = '/work/sbali/WildMix'
 
 class WildMix(Dataset):
     """This dataset loads the mixture-ground truth pairs.

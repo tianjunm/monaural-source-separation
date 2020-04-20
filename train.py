@@ -26,7 +26,6 @@ import utils.hardware
 
 PATH_TO_RESULTS = 'results/'
 
-
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.DEBUG)
 
 
@@ -42,7 +41,7 @@ class Experiment():
                  seq2seq=False,
                  waveunet=False,
                  load_path=None):
-
+        print("RUNNING")
         self.identifier = time.strftime("%y%m%d%H%M%S", time.gmtime())
         self.device = utils.hardware.get_device()
         self._model = model
@@ -55,12 +54,12 @@ class Experiment():
         self._seq2seq = seq2seq
         self._waveunet = waveunet
         self._load_path = load_path
-
-    def run(self, record_path, record_template, checkpoint_freq=50,
+    
+    def run(self, record_path, record_template, checkpoint_freq=50, 
             early_stopping_limit=None, no_pit=False, no_tgt=False):
+        
         logging.info(f'starts experiment: {self._save_path_prefix}')
         start_epoch, min_val_loss = self._load_snapshot()
-
         counter = 0
         min_train_loss = None
 
@@ -119,21 +118,15 @@ class Experiment():
                 loss = self._loss_fn(model_input, model_output,
                                      ground_truths[:, 1:])
             elif self._waveunet:
-                gt_shape = ground_truths.shape
-                ground_truths = ground_truths.reshape(gt_shape[0]*gt_shape[1], gt_shape[2],gt_shape[3])
-                agg  = batch['model_input'].to(self.device).float()
-                clipped_agg = batch['clipped_model_input'].to(self.device)
-                agg = agg.reshape(agg.shape[0]*agg.shape[1], 1, agg.shape[2])
-                clipped_agg = clipped_agg.reshape(clipped_agg.shape[0]*clipped_agg.shape[1], clipped_agg.shape[2])
-                model_output = self._model(agg)
+                clipped_agg = batch['clipped_model_input']
+                model_input = model_input.reshape(model_input.shape[0], 1, model_input.shape[1])
+                model_output = self._model(model_input)
                 last_output = clipped_agg - torch.sum(model_output, dim=1)
                 last_output = last_output.reshape(last_output.shape[0], 1, last_output.shape[1]).float()
                 model_output = torch.cat((model_output, last_output), dim=1).double()
-                ground_truths = ground_truths.to(self.device)
                 max_abs_output = torch.max(torch.abs(model_output))
                 max_abs_gt = torch.max(torch.abs(ground_truths))
                 loss = nn.MSELoss()(model_output/max_abs_output, ground_truths/max_abs_gt)
-                #self._loss_fn(clipped_agg, model_output/max_abs_output, ground_truths/max_abs_gt)
             else:
                 model_output = self._model(model_input)
                 loss = self._loss_fn(model_input, model_output, ground_truths)
@@ -164,21 +157,15 @@ class Experiment():
                     loss = self._loss_fn(model_input, model_output,
                                          ground_truths[:, 1:])
                 elif self._waveunet:
-                    ground_truths = torch.stack(batch['ground_truths'], axis = 1)
-                    gt_shape = ground_truths.shape
-                    ground_truths = ground_truths.reshape(gt_shape[0]*gt_shape[1], gt_shape[2],gt_shape[3])
-                    agg  = batch['aggregate'].to(self.device).float()
-                    clipped_agg = batch['aggregate_clipped'].to(self.device)
-                    agg = agg.reshape(agg.shape[0]*agg.shape[1], 1, agg.shape[2])
-                    clipped_agg = clipped_agg.reshape(clipped_agg.shape[0]*clipped_agg.shape[1], clipped_agg.shape[2])
-                    model_output = self.model(agg)
-                    last_output = clipped_agg - torch.sum(output, dim=1)
+                    clipped_agg = batch['clipped_model_input']
+                    model_input = model_input.reshape(model_input.shape[0], 1, model_input.shape[1])
+                    model_output = self._model(model_input)
+                    last_output = clipped_agg - torch.sum(model_output, dim=1)
                     last_output = last_output.reshape(last_output.shape[0], 1, last_output.shape[1]).float()
                     model_output = torch.cat((model_output, last_output), dim=1).double()
-                    ground_truths = ground_truths.to(self.device)
                     max_abs_output = torch.max(torch.abs(model_output))
                     max_abs_gt = torch.max(torch.abs(ground_truths))
-                    loss = self._loss_fn(clipped_agg, model_output/max_abs_output, ground_truths/max_abs_gt)
+                    loss = nn.MSELoss()(model_output/max_abs_output, ground_truths/max_abs_gt)
                 else:
                     model_output = self._model(model_input)
                     loss = self._loss_fn(model_input, model_output,

@@ -128,7 +128,7 @@ def prepare_model(dataset_spec, model_spec, input_shape = None):
         depth = model_config['depth']
         stride = model_config['stride']
         stride_change = model_config['stride_change']
-        target_output_size = 256
+        target_output_size = dataset_config['mixture_duration']* dataset_config["sample_rate"]
         model = waveunet.WaveUNet(in_channels, layer_channels, in_channels, 
                 num_cats, kernel_size, target_output_size, pre_depth, 
                 post_depth, depth, stride, stride_change)
