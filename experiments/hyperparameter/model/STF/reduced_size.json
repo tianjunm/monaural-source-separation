@@ -1,14 +1,14 @@
 {
-    "id": "experiment",
+    "id": "reduced_size",
     "model": 
     {
-        "name": "Transformer",
+        "name": "STF",
         "config":
         {
             "max_epoch": 100,
             "batch_size": 32,
             "num_heads": 4,
-            "num_layers": 6,
+            "num_layers": 3,
             "dmodel": 256,
             "hidden_size": 512,
             "dropout": 0.1

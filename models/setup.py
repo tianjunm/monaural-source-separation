@@ -76,10 +76,22 @@ def prepare_model(dataset_spec, model_spec, input_shape):
         dropout = model_config['dropout']
         num_sources = dataset_config['num_sources']
 
-        model = otf.Transformer(input_size, num_sources, dmodel, num_heads,
-                                num_layers, hidden_size, dropout)
-        # model = stt_aaai.make_OTF(2 * input_size, num_heads, dmodel,
-        #                           hidden_size, num_heads, num_sources, dropout)
+        # model = otf.Transformer(input_size, num_sources, dmodel, num_heads,
+        #                         num_layers, hidden_size, dropout)
+        model = stt_aaai.make_OTF(2 * input_size, num_heads, dmodel,
+                                  hidden_size, num_heads, num_sources, dropout)
+
+    elif model_name == 'STF':
+        input_size = get_input_size(dataset_spec, input_shape)
+        num_heads = model_config['num_heads']
+        num_layers = model_config['num_layers']
+        dmodel = model_config['dmodel']
+        hidden_size = model_config['hidden_size']
+        dropout = model_config['dropout']
+        num_sources = dataset_config['num_sources']
+
+        model = stt_aaai.make_STF(2 * input_size, num_heads, dmodel,
+                                  hidden_size, num_heads, num_sources, dropout)
 
     elif model_name == 'CNNTransformer':
         input_size = get_input_size(dataset_spec, input_shape)

@@ -115,8 +115,9 @@ class Experiment():
             ground_truths = batch['ground_truths'].to(self.device)
 
             if self._seq2seq:
-                model_output = self._model(model_input, ground_truths,
-                                           no_tgt=no_tgt)
+                model_output = self._model(model_input, ground_truths)
+                # prediction = self._decode(model_input, ground_truths)
+                # loss = self._loss_fn(prediction, ground_truths[:, 1:])
                 loss = self._loss_fn(model_input, model_output,
                                      ground_truths[:, 1:])
             else:
@@ -144,8 +145,7 @@ class Experiment():
                 ground_truths = batch['ground_truths'].to(self.device)
 
                 if self._seq2seq:
-                    model_output = self._model(model_input, ground_truths,
-                                               no_tgt=no_tgt)
+                    model_output = self._model(model_input, ground_truths)
                     loss = self._loss_fn(model_input, model_output,
                                          ground_truths[:, 1:])
                 else:
@@ -201,6 +201,31 @@ class Experiment():
         with open(record_path, 'a+') as f:
             csv_writer = csv.DictWriter(f, fieldnames=record_template.keys())
             csv_writer.writerow(record_template)
+
+    # TODO: temporary, will clean up soon
+    def _decode(self, model_input, ground_truths):
+        b = model_input.size(0)
+        n = model_input.size(1)
+
+        ys = torch.ones(b, n + 1, ground_truths.size(-1)).to(self.device)
+
+        src = model_input.unsqueeze(2)
+
+        running_loss = 0.0
+        for i in range(n):
+            out = self._model(model_input, ys) * src
+            print('------------------------------------------------------------')
+            print(torch.cuda.max_memory_allocated(self.device))
+            loss = self._loss_fn(out[:, i].unsqueeze(1),
+                                  ground_truths[:, i + 1].unsqueeze(1))
+            # ys = torch.cat((ys, out.view(
+            #     b, i + 1, -1)[:, -1].unsqueeze(1)), dim=1)
+            ys[:, 1:i + 2] = out[:, :i + 1].view(b, i + 1, -1)
+            print(torch.cuda.max_memory_allocated(self.device))
+            print('------------------------------------------------------------')
+
+        # return ys[:, 1:]
+        return loss / n
 
     # def _sync_tensorboard(self):
     #     legend = ""
@@ -321,7 +346,11 @@ def main():
 
     logging.info('finished setting up training')
 
-    seq2seq = (model_spec['model']['name'] in ['STT'])
+    seq2seq = (model_spec['model']['name'] in ['Transformer', 'STF', 'STT'])
+
+    # if seq2seq:
+    #     loss_fn = loss_functions.loss_implementation.NoMask(
+    #         dataset_spec['config'])
 
     experiment = Experiment(model=model,
                             train_data=train_dataloader,
@@ -336,7 +365,8 @@ def main():
     record_template = prepare_record_template(dataset_spec, model_spec)
 
     # TODO just a test
-    no_tgt = (model_spec['id'] == 'sample2')
+    # no_tgt = (model_spec['id'] == 'sample2')
+    no_tgt = False
 
     print(args.no_pit)
     experiment.run(record_path, record_template, args.checkpoint_freq,

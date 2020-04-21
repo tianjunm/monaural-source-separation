@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -o stt_2s_long.out # STDOUT
+#SBATCH -o stf_2s.out # STDOUT
 
 
 WORK_ROOT="/work/tianjunm/monaural-source-separation"
@@ -10,12 +10,12 @@ MODEL_SPEC="$WORK_ROOT/experiments/hyperparameter/model"
 
 python $WORK_ROOT/train.py \
     --dataset_spec "$DATASET_SPEC/t1-2s-10c/4s-aaai.json" \
-    --model_spec "$MODEL_SPEC/STT/sample2.json" \
+    --model_spec "$MODEL_SPEC/STF/sample.json" \
     --checkpoint_freq 50 \
-    --early_stopping_limit 20
+    --early_stopping_limit 15
 
 python $WORK_ROOT/train.py \
     --dataset_spec "$DATASET_SPEC/t2-2s-10c/4s-aaai.json" \
-    --model_spec "$MODEL_SPEC/STT/sample2.json" \
+    --model_spec "$MODEL_SPEC/STF/sample.json" \
     --checkpoint_freq 50 \
-    --early_stopping_limit 20
+    --early_stopping_limit 15

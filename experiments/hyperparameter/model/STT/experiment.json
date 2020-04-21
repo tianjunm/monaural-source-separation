@@ -1,17 +1,17 @@
 {
-    "id": "sample2",
+    "id": "experiment",
     "model": 
     {
         "name": "STT",
         "config":
         {
             "max_epoch": 400,
-            "batch_size": 16,
+            "batch_size": 32,
             "num_heads": 4,
-            "num_layers": 4,
+            "num_layers": 6,
             "dmodel": 256,
-            "hidden_size": 256,
-            "dropout": 0.1,
+            "hidden_size": 512,
+            "dropout": 0.3,
             "c_out": 64,
             "d_out": 32,
             "ks2": 32,
@@ -30,5 +30,5 @@
         }
     },
 
-    "loss_function": "Difference"
+    "loss_function": "CSALoss"
 }

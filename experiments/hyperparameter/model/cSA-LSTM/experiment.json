@@ -2,16 +2,15 @@
     "id": "experiment",
     "model": 
     {
-        "name": "Transformer",
+        "name": "cSA-LSTM",
         "config":
         {
             "max_epoch": 100,
-            "batch_size": 32,
-            "num_heads": 4,
-            "num_layers": 6,
-            "dmodel": 256,
-            "hidden_size": 512,
-            "dropout": 0.1
+            "batch_size": 64,
+            "embed_dim": 256,
+            "output_dim": 512,
+            "num_layers": 3,
+            "hidden_size": 512
         }
     },
 

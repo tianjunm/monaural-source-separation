@@ -62,16 +62,40 @@ def perm_invariant(func):
     return wrapper_perm_invariant
 
 
-# def normalize_loss(func):
-#     def wrapper_normalize_loss(*args):
-#         model_input = args[1]
-#         model_output = args[2]
-#         ground_truths = args[3]
+def perm_invariant_nomask(func):
+    """Decorator that enables permutational-invariant training
 
-#         b = ground_truths.size(0)
-#         c = ground_truths.size(1)
+    Source: Permutation invariant training of deep models
+            for speaker-independent multi-talker speech separation
 
+    """
 
-#         return losses.min(axis=-1).values.mean()
+    def wrapper_perm_invariant(*args, **kwargs):
+        prediction = args[1]
+        ground_truths = args[2]
 
-#     return wrapper_perm_invariant
+        s = args[0].s
+        perms = get_all_permutations(s)
+
+        if (args[0].input_dimensions == 'BN(2M)' and
+           args[0].output_dimensions == 'BN(S2M)'):
+            b = prediction.size(0)
+            n = prediction.size(1)
+
+            prediction = prediction.view(b, n, s, 2, -1).permute(
+                0, 2, 3, 1, 4)
+            ground_truths = ground_truths.view(b, n, s, 2, -1).permute(
+                0, 2, 3, 1, 4)
+        else:
+            b = model_input.size(0)
+
+        losses = torch.zeros(b, len(perms))
+        for i, perm in enumerate(perms):
+            loss = func(args[0], prediction[:, :, perm], ground_truths)
+            losses[:, i] = loss
+
+        return losses.min(axis=-1).values.mean()
+
+    wrapper_perm_invariant.unwrapped = func
+
+    return wrapper_perm_invariant

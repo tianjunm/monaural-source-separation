@@ -1,17 +1,14 @@
 {
-    "id": "experiment",
+    "id": "sample",
     "model": 
     {
-        "name": "Transformer",
+        "name": "SingleBLSTM",
         "config":
         {
             "max_epoch": 100,
             "batch_size": 32,
-            "num_heads": 4,
-            "num_layers": 6,
-            "dmodel": 256,
-            "hidden_size": 512,
-            "dropout": 0.1
+            "dmodel": 128,
+            "hidden_size": 128
         }
     },
 

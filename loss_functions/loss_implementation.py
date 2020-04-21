@@ -97,21 +97,6 @@ class Difference(nn.Module):
             loss: [batch_size]
 
         """
-        # if (self.input_dimensions == 'BN(2M)' and
-        #    self.output_dimensions == 'BN(S2M)'):
-        #     b = model_input.size(0)
-        #     n = model_input.size(1)
-
-        #     model_input = model_input.view(b, n, 2, -1).permute(0, 2, 1, 3)
-        #     model_output = model_output.view(b, n, self.s, 2, -1).permute(
-        #         0, 2, 3, 1, 4)
-        #     ground_truths = ground_truths.view(b, n, self.s, 2, -1).permute(
-        #         0, 2, 3, 1, 4)
-        # c = model_output.size(1)
-
-        # Y_r = model_input[:, 0].unsqueeze(1)
-        # Y_i = model_input[:, 1].unsqueeze(1)
-
         Y = model_input.unsqueeze(1)
 
         s = model_output.size(1)
@@ -119,18 +104,40 @@ class Difference(nn.Module):
         m = model_input.size(3)
 
         norm_factor = math.sqrt(s * n * m)
-        # J_1 = torch.norm((M_r * Y_r - S_r) / norm_factor)
-        # J_2 = torch.norm((M_i * Y_i - S_i) / norm_factor)
         loss = torch.norm((Y * model_output - ground_truths) /
                           norm_factor, dim=[3, 4]).mean(axis=[1, 2])
 
-        # M_r, M_i = model_output[:, :, 0], model_output[:, :, 1]
-        # S_r, S_i = ground_truths[:, :, 0], ground_truths[:, :, 1]
+        return loss
 
-        # J_1 = ((M_r * Y_r - S_r) ** 2).mean(axis=[1, 2, 3])
-        # J_2 = ((M_i * Y_i - S_i) ** 2).mean(axis=[1, 2, 3])
 
-        # loss = (J_1 + J_2) / c
-        # loss = (J_1 + J_2) / 2
+class NoMask(nn.Module):
+    def __init__(self, dataset_config):
+        super().__init__()
+        self.s = dataset_config['num_sources']
+        self.input_dimensions = dataset_config['input_dimensions']
+        self.output_dimensions = dataset_config['output_dimensions']
+
+    @helpers.perm_invariant_nomask
+    def forward(self, prediction, ground_truths):
+        """Calculates the loss using the difference only.
+
+        Assumes that features are represented as spectrograms.
+
+        Args:
+            model_input: [b * 2 * n * m]
+            model_output: [b * s * 2 * n * m]
+            ground_truths: [b * s * 2 * n * m]
+
+        Returns:
+            loss: [batch_size]
+
+        """
+
+        n = ground_truths.size(2)
+        m = ground_truths.size(3)
+
+        norm_factor = math.sqrt(self.s * n * m)
+        loss = torch.norm((prediction - ground_truths) /
+                          norm_factor, dim=[3, 4]).mean(axis=[1, 2])
 
         return loss

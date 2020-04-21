@@ -7,10 +7,10 @@
         {
             "max_epoch": 400,
             "batch_size": 16,
-            "num_heads": 4,
-            "num_layers": 4,
+            "num_heads": 2,
+            "num_layers": 3,
             "dmodel": 256,
-            "hidden_size": 256,
+            "hidden_size": 512,
             "dropout": 0.1,
             "c_out": 64,
             "d_out": 32,

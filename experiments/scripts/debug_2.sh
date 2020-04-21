@@ -10,5 +10,5 @@ MODEL_SPEC="$WORK_ROOT/experiments/hyperparameter/model"
 
 python $WORK_ROOT/train.py \
     --dataset_spec "$DATASET_SPEC/t0-2s-10c/4s-aaai.json" \
-    --model_spec "$MODEL_SPEC/STT/sample2.json" \
+    --model_spec "$MODEL_SPEC/STF/reduced_size.json" \
     --checkpoint_freq 50

@@ -102,8 +102,11 @@ class CNNTransformer(nn.Module):
         self.encoder = nn.Linear(8 * self.m, dmodel)
         # self.decoder = nn.Linear(dmodel, 2 * self.c * self.m)
         self.fc0 = nn.Linear(dmodel, fc_dim)
-        self.fc1 = nn.Linear(fc_dim, fc_dim)
-        self.fc2 = nn.Linear(fc_dim, self.s * 2 * self.m)
+        # self.fc1 = nn.Linear(fc_dim, fc_dim)
+        self.lstm = nn.LSTM(fc_dim, fc_dim, batch_first=True,
+                            bidirectional=True)
+
+        self.fc2 = nn.Linear(2 * fc_dim, self.s * 2 * self.m)
 
         # self.init_weights()
 
@@ -179,8 +182,9 @@ class CNNTransformer(nn.Module):
         x = self.transformer_encoder(x, self.src_mask)
 
         x = F.relu(self.fc0(x))
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        x, _ = self.lstm(x)
+        # x = F.relu(self.fc1(x))
+        x = self.fc2(F.relu(x))
 
         x = x.view(n, b, 2, self.s, self.m).permute(1, 3, 2, 0, 4)
 
