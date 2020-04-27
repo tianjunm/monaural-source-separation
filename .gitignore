@@ -13,6 +13,7 @@ experiments/snapshots
 standard_grid/
 mmsdk/
 results/
-
+*.dat
+grid_search/
 *.csv
 *.txt
