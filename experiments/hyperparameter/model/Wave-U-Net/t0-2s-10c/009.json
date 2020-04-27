@@ -1,0 +1,49 @@
+{
+    "id": "000",
+    "model": 
+    {
+        "name": "WAVE-U-NET",
+        "config":
+        {
+            "max_epoch": 100,
+            "batch_size": 16,
+            "levels": 256,
+            "depth": 256,
+            "pre_depth": 256,
+            "post_depth": 256,
+            "channels": 5,
+            "kernel_size": 5,
+            "stride": 2,
+            "stride_change":0
+        }
+    },
+
+    "optimizer":
+    {
+        "name": "Adam",
+        "config":
+        {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "epsilon": 1e-8
+        }
+    },
+
+    "dataset":
+    {
+        "name": "wild-mix",
+        "transform": "wave-u-net",
+        "config":
+        {
+            "input_dimensions": "B2NM",
+            "output_dimensions": "BC2NM",
+            "mix_method": 0,
+            "num_sources": 2,
+            "num_classes": 2,
+            "mixture_duration": 4,
+            "sample_rate": 16000
+        }
+    },
+
+    "loss_function": "CSALoss"
+}

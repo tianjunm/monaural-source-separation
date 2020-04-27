@@ -1,3 +1,5 @@
+# https://github.com/f90/Wave-U-Net-Pytorch/blob/master/waveunet.py
+
 import torch
 import numpy as np
 from torch import nn as nn
@@ -54,3 +56,4 @@ class Conv1Layer(nn.Module):
             assert ((curr_size - 1) % self.stride == 0)  # We need to have a value at the beginning and end
             curr_size = ((curr_size - 1) // self.stride) + 1
         return curr_size
+

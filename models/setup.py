@@ -2,7 +2,9 @@
 
 
 import json
-from . import csa_lstm, blstm, l2l, otf, stt_aaai, waveunet
+from . import csa_lstm, blstm, l2l, otf, stt_aaai, waveunet, classifier
+from memory_profiler import profile
+
 # from stt import stt_aaai
 
 
@@ -12,7 +14,7 @@ def get_input_size(dataset_spec, input_shape):
     elif dataset_spec['config']['input_dimensions'] == 'BN(2M)':
         return input_shape[-1] // 2
 
-
+#@profile   
 def prepare_model(dataset_spec, model_spec, input_shape = None):
     dataset_config = dataset_spec['config']
 
@@ -26,7 +28,6 @@ def prepare_model(dataset_spec, model_spec, input_shape = None):
         output_dim = model_config['output_dim']
         hidden_size = model_config['hidden_size']
         num_layers = model_config['num_layers']
-
         model = csa_lstm.CSALSTM(input_size, num_sources, embed_dim,
                                  hidden_size, output_dim, num_layers)
 
@@ -117,7 +118,8 @@ def prepare_model(dataset_spec, model_spec, input_shape = None):
                                   num_sources=num_sources, dropout=dropout,
                                   c_out=c_out, d_out=d_out, ks2=ks2,
                                   res_size=res_size)
-    elif model_name=='WAVE-U-NET':
+                         
+    elif model_name=='WAVE-U-NET' or  model_name=='W-WAVE-U-NET':
         layer_channels = [model_config['channels']*2**i for i in range(0, model_config['levels'])]
         in_channels = dataset_config['in_channels']
         num_cats = dataset_config['num_sources']
@@ -129,8 +131,35 @@ def prepare_model(dataset_spec, model_spec, input_shape = None):
         stride = model_config['stride']
         stride_change = model_config['stride_change']
         target_output_size = dataset_config['mixture_duration']* dataset_config["sample_rate"]
-        model = waveunet.WaveUNet(in_channels, layer_channels, in_channels, 
-                num_cats, kernel_size, target_output_size, pre_depth, 
-                post_depth, depth, stride, stride_change)
+        model = waveunet.WaveUNet(in_channels=in_channels, 
+                                  num_channels=layer_channels, 
+                                  out_channels=in_channels, 
+                                  num_cats=num_cats,
+                                  kernel_size=kernel_size,
+                                  target_output_size=target_output_size,
+                                  pre_depth=pre_depth,
+                                  post_depth=post_depth,
+                                  depth=depth,
+                                  dataset_info=dataset_spec,
+                                  stride_start=stride,
+                                  stride_change=stride_change)
+
+    return model
+
+def classifier_prepare_model(dataset_spec, model_spec, input_shape, total_ontological_cats = 6):
+    dataset_config = dataset_spec['config']
+    model_name = model_spec['model']['name']
+    model_config = model_spec['model']['config']
+    input_size = get_input_size(dataset_spec, input_shape)
+    num_heads = model_config['num_heads']
+    num_layers = model_config['num_layers']
+    dmodel = model_config['dmodel']
+    hidden_size = model_config['hidden_size']
+        # dff = model_config['dff']
+    dropout = model_config['dropout']
+    num_sources = dataset_config['num_sources']
+    num_outputs = total_ontological_cats
+    model = classifier.Transformer(num_outputs, input_size, input_shape, num_sources, dmodel, num_heads,
+                                num_layers, hidden_size, dropout)
 
     return model

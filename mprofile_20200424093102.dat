@@ -1,0 +1,10 @@
+CMDLINE python3 /work/sbali/monaural-source-separation/train.py --dataset_spec /work/sbali/monaural-source-separation/experiments/hyperparameter/dataset/t0-2s-10c/4s-waveunet.json --model_spec /work/sbali/monaural-source-separation/experiments/hyperparameter/model/Wave-U-Net/t0-2s-10c/000.json --checkpoint_freq 50
+MEM 0.285156 1587735062.8227
+MEM 12.351562 1587735062.9231
+MEM 20.476562 1587735063.0234
+MEM 54.339844 1587735063.1236
+MEM 66.628906 1587735063.2239
+MEM 71.816406 1587735063.3242
+MEM 80.148438 1587735063.4245
+MEM 88.269531 1587735063.5248
+MEM 92.539062 1587735063.6251
