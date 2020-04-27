@@ -19,11 +19,12 @@ class CSALoss(nn.Module):
     and comparing the result with the ground truth.
     """
 
-    def __init__(self, dataset_config):
+    def __init__(self, dataset_config, no_pit=False):
         super().__init__()
         self.s = dataset_config['num_sources']
         self.input_dimensions = dataset_config['input_dimensions']
         self.output_dimensions = dataset_config['output_dimensions']
+        self.no_pit = no_pit
 
     @helpers.perm_invariant
     def forward(self, model_input, model_output, ground_truths):
@@ -55,7 +56,8 @@ class CSALoss(nn.Module):
         n = model_input.size(2)
         m = model_input.size(3)
 
-        norm_factor = math.sqrt(s * n * m)
+        # norm_factor = math.sqrt(s * n * m)
+        norm_factor = math.sqrt(n * m)
         # J_1 = ((M_r * Y_r - M_i * Y_i - S_r) ** 2).mean(axis=[1, 2, 3])
         # J_2 = ((M_r * Y_i + M_i * Y_r - S_i) ** 2).mean(axis=[1, 2, 3])
         J_1 = torch.norm((M_r * Y_r - M_i * Y_i - S_r) / norm_factor,
@@ -139,5 +141,47 @@ class NoMask(nn.Module):
         norm_factor = math.sqrt(self.s * n * m)
         loss = torch.norm((prediction - ground_truths) /
                           norm_factor, dim=[3, 4]).mean(axis=[1, 2])
+
+        return loss
+
+
+class UniSrc(nn.Module):
+    def __init__(self, dataset_config):
+        super().__init__()
+        self.input_dimensions = dataset_config['input_dimensions']
+        self.output_dimensions = dataset_config['output_dimensions']
+
+    def forward(self, model_input, model_output, ground_truths):
+        """Calculates the loss using the cost function of cSA-based method.
+
+        Assumes that features are represented as spectrograms.
+
+        Args:
+            model_input: [b * 2 * n * m]
+            model_output: [b * 2 * n * m]
+            ground_truths: [b * 2 * n * m]
+
+        Returns:
+            loss: [batch_size]
+
+        """
+
+        Y_r = model_input[:, 0].unsqueeze(1)
+        Y_i = model_input[:, 1].unsqueeze(1)
+
+        M_r, M_i = model_output[:, 0], model_output[:, 1]
+        S_r, S_i = ground_truths[:, 0], ground_truths[:, 1]
+
+        n = model_input.size(1)
+        m = model_input.size(2)
+
+        norm_factor = math.sqrt(n * m)
+
+        J_1 = torch.norm((M_r * Y_r - M_i * Y_i - S_r) / norm_factor,
+                         dim=[1, 2])
+        J_2 = torch.norm((M_r * Y_i - M_i * Y_r - S_i) / norm_factor,
+                         dim=[1, 2])
+
+        loss = (J_1 + J_2) / 2
 
         return loss

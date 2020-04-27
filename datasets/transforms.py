@@ -69,6 +69,14 @@ class STFT():
 
             spects = torch.cat((dummy, spects))
 
+        elif output_dimensions == 'B2NM':
+            spects = self._stft(ground_truths).permute(2, 1, 0)
+
+        elif output_dimensions == 'BN(2M)':
+            spects = self._stft(ground_truths).permute(1, 2, 0)
+            n = spects.size(0)
+            spects = spects.reshape(n, -1)
+
         return spects
 
     def _stft(self, pcm):

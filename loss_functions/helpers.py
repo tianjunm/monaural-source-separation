@@ -32,13 +32,11 @@ def perm_invariant(func):
         model_input = args[1]
         model_output = args[2]
         ground_truths = args[3]
-
         s = args[0].s
-        perms = get_all_permutations(s)
+        b = model_input.size(0)
 
         if (args[0].input_dimensions == 'BN(2M)' and
            args[0].output_dimensions == 'BN(S2M)'):
-            b = model_input.size(0)
             n = model_input.size(1)
 
             model_input = model_input.view(b, n, 2, -1).permute(0, 2, 1, 3)
@@ -46,16 +44,21 @@ def perm_invariant(func):
                 0, 2, 3, 1, 4)
             ground_truths = ground_truths.view(b, n, s, 2, -1).permute(
                 0, 2, 3, 1, 4)
+
+        # disable permutation invariant training
+        if args[0].no_pit:
+            loss = func(args[0], model_input, model_output, ground_truths)
+            return loss.mean()
+
         else:
-            b = model_input.size(0)
+            perms = get_all_permutations(s)
+            losses = torch.zeros(b, len(perms))
+            for i, perm in enumerate(perms):
+                loss = func(args[0], model_input, model_output[:, perm],
+                            ground_truths)
+                losses[:, i] = loss
 
-        losses = torch.zeros(b, len(perms))
-        for i, perm in enumerate(perms):
-            loss = func(args[0], model_input, model_output[:, perm],
-                        ground_truths)
-            losses[:, i] = loss
-
-        return losses.min(axis=-1).values.mean()
+            return losses.min(axis=-1).values.mean()
 
     wrapper_perm_invariant.unwrapped = func
 
@@ -75,7 +78,6 @@ def perm_invariant_nomask(func):
         ground_truths = args[2]
 
         s = args[0].s
-        perms = get_all_permutations(s)
 
         if (args[0].input_dimensions == 'BN(2M)' and
            args[0].output_dimensions == 'BN(S2M)'):
@@ -89,6 +91,7 @@ def perm_invariant_nomask(func):
         else:
             b = model_input.size(0)
 
+        perms = get_all_permutations(s)
         losses = torch.zeros(b, len(perms))
         for i, perm in enumerate(perms):
             loss = func(args[0], prediction[:, :, perm], ground_truths)
@@ -96,6 +99,6 @@ def perm_invariant_nomask(func):
 
         return losses.min(axis=-1).values.mean()
 
-    wrapper_perm_invariant.unwrapped = func
+    # wrapper_perm_invariant.unwrapped = func
 
     return wrapper_perm_invariant

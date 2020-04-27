@@ -46,7 +46,8 @@ class WildMix(Dataset):
         instances = self._datapoints.iloc[begin:end]
 
         for iid in instances.index:
-            ground_truths.append(self._create_gt(instances, iid))
+            ground_truths.append(self._create_gt(self._raw_data,
+                                                 instances, iid))
             component_info.append(instances.at[iid, 'category'])
 
         item = {
@@ -65,7 +66,7 @@ class WildMix(Dataset):
 
         return input_shape
 
-    def _create_gt(self, instances, iid):
+    def _create_gt(self, data, instances, iid):
         """Creates the ground truth.
 
         The ground truth is a clip from the original source, padded
@@ -82,7 +83,7 @@ class WildMix(Dataset):
         start = instances.at[iid, 'source_start']
         placement = instances.at[iid, 'mixture_placement']
 
-        raw_source = self._raw_data.computational_sequences[category][
+        raw_source = data.computational_sequences[category][
                      sound_id]['features']
 
         ground_truth = self._pad(self._clip(raw_source, start, duration),
@@ -158,3 +159,139 @@ class WildMix(Dataset):
         assert len(padded_clip) == mixture_length
 
         return padded_clip
+
+
+class Musdb18(WildMix):
+    """This dataset loads the mixture-ground truth pairs.
+
+    Loads the processed MUSDB18 dataset
+    """
+
+    def __init__(self, dataset_config, dataset_split, transform=None):
+        self._config = dataset_config
+        self._raw_data = self._load_raw()
+        self._datapoints = self._load_augmentation(dataset_config,
+                                                   dataset_split)
+        self._transform = transform
+
+
+class Timit(WildMix):
+    """This dataset loads the mixture-ground truth pairs.
+
+    Loads the processed TIMIT dataset for evaluating speech enhancement.
+
+    """
+
+    def __init__(self, dataset_spec, dataset_split, transform=None):
+        self._setting = dataset_spec['id']
+        self._config = dataset_spec['config']
+        self._speech = self._load_speech()
+        self._noise = self._load_noise()
+        self._datapoints = self._load_synth(dataset_split)
+        self._transform = transform
+
+    def __len__(self):
+        s = 2
+        assert len(self._datapoints) % s == 0
+        return len(self._datapoints) // s
+
+    def __getitem__(self, idx):
+        components = []
+        component_info = []
+        s = 2
+
+        # load [nsrc] rows from instruction
+        begin, end = idx * s, (idx + 1) * s
+        instances = self._datapoints.iloc[begin:end]
+
+        components.append(self._create_gt(self._speech, instances,
+                                          instances.index[0]))
+
+        # FIXME bad style
+        if self._setting.startswith('enhance'):
+            components.append(self._create_gt(self._noise, instances,
+                                              instances.index[1]))
+            item = {
+                'model_input': self._overlay(components),
+                'ground_truths': [components[0]],
+                'component_info': []
+            }
+
+        else:
+            components.append(self._create_gt(self._speech, instances,
+                                              instances.index[1]))
+
+            item = {
+                'model_input': self._overlay(components),
+                'ground_truths': components,
+                'component_info': []
+            }
+
+        return self._transform(item)
+
+    def _load_synth(self, dataset_split):
+        hashes = pd.read_csv(os.path.join(DATA_ROOT, 'timit',
+                                          'all_dataset_hashes.csv'))
+
+        # FIXME bad style
+        if self._setting.startswith('enhance'):
+            md5 = hashes[hashes.num_classes == 9].hash_val.iloc[0]
+        else:
+            md5 = hashes[hashes.num_classes == 0].hash_val.iloc[0]
+        print(md5)
+        filename = f'{md5}/{dataset_split}.csv'
+        path = os.path.join(DATA_ROOT, 'timit', filename)
+        synthetic_dataset = pd.read_csv(path)
+
+        return synthetic_dataset
+
+    def _overlay(self, ground_truths):
+        """Overlay ground truths together to create the aggregate."""
+        noise_factor = 0.5 if self._setting.startswith('enhance') else 1
+
+        aggregate = copy.deepcopy(ground_truths[0])
+        for idx in range(1, len(ground_truths)):
+            aggregate += noise_factor * ground_truths[idx]
+        return aggregate
+
+    @staticmethod
+    def _load_speech():
+        """Loads TIMIT speech data into memory."""
+
+        path = os.path.join(DATA_ROOT,
+                            'timit',
+                            'csd_format')
+        files = {}
+
+        files['train'] = os.path.join(path, 'train.csd')
+        files['val'] = os.path.join(path, 'val.csd')
+
+        return mmdatasdk.mmdataset(files)
+
+    @staticmethod
+    def _load_noise():
+        """Loads AudioSet into memory."""
+
+        path = os.path.join(DATA_ROOT,
+                            'audioset_verified',
+                            'csd_format',
+                            'cut',
+                            '16000')
+        files = {}
+
+        noise_classes = [
+            "shaver.csd",
+            "vacuum_cleaner.csd",
+            "chainsaw.csd",
+            "baby_laughter.csd",
+            "duck.csd",
+            "bark.csd",
+            "engine.csd",
+            "water.csd",
+            "wind.csd",
+        ]
+
+        for c in noise_classes:
+            files[c] = os.path.join(path, c)
+
+        return mmdatasdk.mmdataset(files)

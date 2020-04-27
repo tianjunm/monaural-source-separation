@@ -56,7 +56,7 @@ class Experiment():
         self._load_path = load_path
 
     def run(self, record_path, record_template, checkpoint_freq=50,
-            early_stopping_limit=None, no_pit=False, no_tgt=False):
+            early_stopping_limit=None, no_tgt=False):
         logging.info(f'starts experiment: {self._save_path_prefix}')
         start_epoch, min_val_loss = self._load_snapshot()
 
@@ -71,8 +71,8 @@ class Experiment():
                counter >= early_stopping_limit):
                 break
 
-            train_loss = self._train_step(no_pit, no_tgt)
-            val_loss = self._val_step(no_pit, no_tgt)
+            train_loss = self._train_step(no_tgt)
+            val_loss = self._val_step(no_tgt)
 
             train_losses.append(train_loss)
             val_losses.append(val_loss)
@@ -103,7 +103,7 @@ class Experiment():
         self._save_record(record_path, record_template, min_train_loss,
                           min_val_loss)
 
-    def _train_step(self, no_pit, no_tgt):
+    def _train_step(self, no_tgt):
         self._model.train()
         running_loss = 0.0
         iters = 0
@@ -133,7 +133,7 @@ class Experiment():
         # print(i)
         return running_loss / iters
 
-    def _val_step(self, no_pit, no_tgt):
+    def _val_step(self, no_tgt):
         running_loss = 0.0
         iters = 0
 
@@ -257,6 +257,9 @@ def prepare_save_path_prefix(dataset_spec, model_spec):
         ncls = dataset_spec['config']['num_classes']
         dataset_config = f'{dataset_name}-t{mix_method}-{nsrc}s-{ncls}c'
 
+    elif dataset_name == 'timit':
+        dataset_config = 'timit'
+
     mid = model_spec['id']
     model_name = model_spec['model']['name']
 
@@ -275,6 +278,9 @@ def prepare_record_template(dataset_spec, model_spec):
         nsrc = dataset_spec['config']['num_sources']
         ncls = dataset_spec['config']['num_classes']
         dataset_config = f'{dataset_name}-t{mix_method}-{nsrc}s-{ncls}c'
+
+    elif dataset_name == 'timit':
+        dataset_config = 'timit'
 
     mid = model_spec['id']
     model_name = model_spec['model']['name']
@@ -311,7 +317,8 @@ def get_arguments():
     parser.add_argument('--early_stopping_limit', type=int)
     parser.add_argument('--checkpoint_freq', type=int)
     parser.add_argument('--checkpoint_load_path', type=str)
-    parser.add_argument('--no_pit', type=bool, nargs='?', const=True, default=False)
+    # parser.add_argument('--no_pit', type=bool, nargs='?', const=True,
+    #                     default=False)
 
     return parser.parse_args()
 
@@ -368,9 +375,8 @@ def main():
     # no_tgt = (model_spec['id'] == 'sample2')
     no_tgt = False
 
-    print(args.no_pit)
     experiment.run(record_path, record_template, args.checkpoint_freq,
-                   args.early_stopping_limit, args.no_pit, no_tgt)
+                   args.early_stopping_limit, no_tgt)
 
 
 if __name__ == '__main__':

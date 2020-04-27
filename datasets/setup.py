@@ -19,19 +19,25 @@ def prepare_dataloader(dataset_spec, model_spec, dataset_split):
     """
     batch_size = model_spec['model']['config']['batch_size']
 
+    if dataset_spec['transform'] == 'stft':
+        transform = transforms.STFT(dataset_spec)
+
+    elif dataset_spec['transform'] == 'pcm':
+        transform = None
+
     if dataset_spec['name'] == 'wild-mix':
-
-        if dataset_spec['transform'] == 'stft':
-            transform = transforms.STFT(dataset_spec)
-
-        elif dataset_spec['transform'] == 'pcm':
-            transform = None
 
         dataset = dataloaders.WildMix(dataset_spec['config'], dataset_split,
                                       transform=transform)
 
-    elif dataset_spec['name'] == 'avspeech':
-        pass
+    elif dataset_spec['name'] == 'timit':
+
+        dataset = dataloaders.Timit(dataset_spec, dataset_split, transform=transform)
+
+    elif dataset_spec['name'] == 'musdb18':
+
+        dataset = dataloaders.Musdb18(dataset_spec['config'], dataset_split,
+                                      transform=transform)
 
     return torch.utils.data.DataLoader(dataset,
                                        batch_size=batch_size,
